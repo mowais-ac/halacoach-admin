@@ -45,7 +45,7 @@ export function buildCreditsOverview(input: {
   const transactions = buildCreditLedger(input.professionals, input.purchases);
   return {
     vatRate: input.settings.vatRate,
-    packs: input.packs,
+    packs: [...input.packs].sort((a, b) => a.sortOrder - b.sortOrder),
     promos: input.promos,
     transactions,
     stats: {

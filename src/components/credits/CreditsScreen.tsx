@@ -3,12 +3,14 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {
   adjustCredits,
+  createCreditPack,
   createPromoCode,
   getCreditsOverview,
   isApiError,
   listProfessionals,
   updateCreditPack,
   updatePromoCode,
+  type CreditPackBadge,
   type CreditsOverview,
   type ProfessionalSummary,
   type SessionUser,
@@ -28,6 +30,15 @@ import {can} from '@/lib/permissions';
 
 type TxnFilter = 'all' | 'purchase' | 'spend' | 'adjustment';
 
+type PackDraft = {
+  name: string;
+  credits: string;
+  price: string;
+  badge: CreditPackBadge | '';
+};
+
+const emptyPackForm: PackDraft = {name: '', credits: '', price: '', badge: ''};
+
 export function CreditsScreen({actor}: {actor: SessionUser}) {
   const canWrite = can(actor.role, 'credits:write');
   const canAdjust = can(actor.role, 'credits:adjust');
@@ -35,7 +46,9 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [professionals, setProfessionals] = useState<ProfessionalSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [packDrafts, setPackDrafts] = useState<Record<string, string>>({});
+  const [packDrafts, setPackDrafts] = useState<Record<string, PackDraft>>({});
+  const [packForm, setPackForm] = useState<PackDraft>(emptyPackForm);
+  const [packError, setPackError] = useState<string | null>(null);
   const [savingPack, setSavingPack] = useState<string | null>(null);
   const [txnFilter, setTxnFilter] = useState<TxnFilter>('all');
   const [promoForm, setPromoForm] = useState({code: '', discountRate: '10'});
@@ -56,7 +69,19 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
       const [credits, pros] = await Promise.all([getCreditsOverview(), listProfessionals()]);
       setOverview(credits);
       setProfessionals(pros);
-      setPackDrafts(Object.fromEntries(credits.packs.map(pack => [pack.id, String(pack.price)])));
+      setPackDrafts(
+        Object.fromEntries(
+          credits.packs.map(pack => [
+            pack.id,
+            {
+              name: pack.name,
+              credits: String(pack.credits),
+              price: String(pack.price),
+              badge: pack.badge ?? '',
+            },
+          ]),
+        ),
+      );
       if (!adjustForm.professionalId && pros[0]) {
         setAdjustForm(form => ({...form, professionalId: pros[0]!.id}));
       }
@@ -82,7 +107,18 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   }, [overview, txnFilter]);
 
   const savePack = async (packId: string) => {
-    const price = Number(packDrafts[packId]);
+    const draft = packDrafts[packId];
+    const credits = Number(draft?.credits);
+    const price = Number(draft?.price);
+    const name = draft?.name.trim() ?? '';
+    if (!name) {
+      setError('Pack name cannot be empty.');
+      return;
+    }
+    if (!Number.isFinite(credits) || credits < 1) {
+      setError('Each pack needs at least 1 credit.');
+      return;
+    }
     if (!Number.isFinite(price) || price <= 0) {
       setError('Enter a valid pack price in AED.');
       return;
@@ -90,12 +126,48 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     setSavingPack(packId);
     setError(null);
     try {
-      await updateCreditPack(packId, {price});
+      await updateCreditPack(packId, {
+        name,
+        credits,
+        price,
+        badge: draft.badge || null,
+      });
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update pack.');
     } finally {
       setSavingPack(null);
+    }
+  };
+
+  const onCreatePack = async (event: FormEvent) => {
+    event.preventDefault();
+    setPackError(null);
+    const credits = Number(packForm.credits);
+    const price = Number(packForm.price);
+    if (!packForm.name.trim()) {
+      setPackError('Name is required.');
+      return;
+    }
+    if (!Number.isFinite(credits) || credits < 1) {
+      setPackError('Credits must be at least 1.');
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      setPackError('Price must be greater than zero.');
+      return;
+    }
+    try {
+      await createCreditPack({
+        name: packForm.name.trim(),
+        credits,
+        price,
+        badge: packForm.badge || null,
+      });
+      setPackForm(emptyPackForm);
+      await load();
+    } catch (err) {
+      setPackError(isApiError(err) ? err.message : 'Could not create pack.');
     }
   };
 
@@ -214,57 +286,145 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Credit packs</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Prices exclude VAT; {Math.round(overview.vatRate * 100)}% is added at checkout in the pro app.
+        Catalog shown in the pro checkout. Add, edit, or archive packs — prices exclude VAT;{' '}
+        {Math.round(overview.vatRate * 100)}% is added at checkout.
       </p>
-      <div className="mb-8 grid gap-4 md:grid-cols-3">
-        {overview.packs.map(pack => (
-          <Card key={pack.id} className={!pack.active ? 'opacity-60' : undefined}>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-semibold capitalize text-foreground">{pack.id}</p>
-              <div className="flex gap-2">
-                {pack.badge ? (
-                  <Badge tone={pack.badge === 'popular' ? 'coral' : 'sky'}>{pack.badge}</Badge>
-                ) : null}
-                {!pack.active ? <Badge tone="muted">Archived</Badge> : null}
-              </div>
+      {canWrite ? (
+        <Card className="mb-4">
+          <form onSubmit={event => void onCreatePack(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Input
+              label="Name"
+              value={packForm.name}
+              onChange={e => setPackForm(form => ({...form, name: e.target.value}))}
+              placeholder="Starter"
+              required
+            />
+            <Input
+              label="Credits"
+              type="number"
+              min={1}
+              value={packForm.credits}
+              onChange={e => setPackForm(form => ({...form, credits: e.target.value}))}
+              placeholder="10"
+              required
+            />
+            <Input
+              label="Price (AED excl. VAT)"
+              type="number"
+              min={1}
+              value={packForm.price}
+              onChange={e => setPackForm(form => ({...form, price: e.target.value}))}
+              placeholder="199"
+              required
+            />
+            <label className="block text-sm font-medium text-foreground">
+              Badge
+              <select
+                className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-normal"
+                value={packForm.badge}
+                onChange={e =>
+                  setPackForm(form => ({...form, badge: e.target.value as CreditPackBadge | ''}))
+                }>
+                <option value="">None</option>
+                <option value="popular">Popular</option>
+                <option value="value">Best value</option>
+              </select>
+            </label>
+            <div className="flex items-end">
+              <Button type="submit">Add pack</Button>
             </div>
-            <p className="text-2xl font-bold text-primary">{pack.credits} credits</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {formatAed(pack.price)} excl. VAT · {formatAed(pack.price * (1 + overview.vatRate))}{' '}
-              incl.
-            </p>
-            {canWrite ? (
-              <div className="mt-4 space-y-2">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Price (AED)
-                  <input
-                    className="mt-1 h-10 w-full rounded-xl border border-border px-3 text-sm"
-                    type="number"
-                    min={1}
-                    value={packDrafts[pack.id] ?? ''}
-                    onChange={e =>
-                      setPackDrafts(s => ({...s, [pack.id]: e.target.value}))
-                    }
-                  />
-                </label>
+          </form>
+          {packError ? <p className="mt-2 text-sm text-destructive">{packError}</p> : null}
+        </Card>
+      ) : null}
+      <div className="mb-8 grid gap-4 md:grid-cols-3">
+        {overview.packs.map(pack => {
+          const draft = packDrafts[pack.id] ?? {
+            name: pack.name,
+            credits: String(pack.credits),
+            price: String(pack.price),
+            badge: pack.badge ?? '',
+          };
+          return (
+            <Card key={pack.id} className={!pack.active ? 'opacity-60' : undefined}>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-semibold text-foreground">{pack.name}</p>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={savingPack === pack.id}
-                    onClick={() => void savePack(pack.id)}>
-                    Save price
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void togglePack(pack.id, !pack.active)}>
-                    {pack.active ? 'Archive' : 'Restore'}
-                  </Button>
+                  {pack.badge ? (
+                    <Badge tone={pack.badge === 'popular' ? 'coral' : 'sky'}>{pack.badge}</Badge>
+                  ) : null}
+                  {!pack.active ? <Badge tone="muted">Archived</Badge> : null}
                 </div>
               </div>
-            ) : null}
-          </Card>
-        ))}
+              <p className="text-2xl font-bold text-primary">{pack.credits} credits</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {formatAed(pack.price)} excl. VAT · {formatAed(pack.price * (1 + overview.vatRate))}{' '}
+                incl.
+              </p>
+              {canWrite ? (
+                <div className="mt-4 space-y-2">
+                  <Input
+                    label="Name"
+                    value={draft.name}
+                    onChange={e =>
+                      setPackDrafts(s => ({...s, [pack.id]: {...draft, name: e.target.value}}))
+                    }
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Credits"
+                      type="number"
+                      min={1}
+                      value={draft.credits}
+                      onChange={e =>
+                        setPackDrafts(s => ({...s, [pack.id]: {...draft, credits: e.target.value}}))
+                      }
+                    />
+                    <Input
+                      label="Price (AED)"
+                      type="number"
+                      min={1}
+                      value={draft.price}
+                      onChange={e =>
+                        setPackDrafts(s => ({...s, [pack.id]: {...draft, price: e.target.value}}))
+                      }
+                    />
+                  </div>
+                  <label className="block text-xs font-medium text-muted-foreground">
+                    Badge
+                    <select
+                      className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                      value={draft.badge}
+                      onChange={e =>
+                        setPackDrafts(s => ({
+                          ...s,
+                          [pack.id]: {...draft, badge: e.target.value as CreditPackBadge | ''},
+                        }))
+                      }>
+                      <option value="">None</option>
+                      <option value="popular">Popular</option>
+                      <option value="value">Best value</option>
+                    </select>
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={savingPack === pack.id}
+                      onClick={() => void savePack(pack.id)}>
+                      Save pack
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void togglePack(pack.id, !pack.active)}>
+                      {pack.active ? 'Archive' : 'Restore'}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </Card>
+          );
+        })}
       </div>
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Promo codes</h2>

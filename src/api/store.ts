@@ -50,9 +50,9 @@ export const seedAdmins: AdminRecord[] = [
 ];
 
 export const seedCreditPacks: CreditPack[] = [
-  {id: 'starter', credits: 10, price: 199, active: true},
-  {id: 'growth', credits: 30, price: 499, badge: 'popular', active: true},
-  {id: 'scale', credits: 75, price: 999, badge: 'value', active: true},
+  {id: 'starter', name: 'Starter', credits: 10, price: 199, sortOrder: 1, active: true},
+  {id: 'growth', name: 'Growth', credits: 30, price: 499, badge: 'popular', sortOrder: 2, active: true},
+  {id: 'scale', name: 'Scale', credits: 75, price: 999, badge: 'value', sortOrder: 3, active: true},
 ];
 
 export type MockState = {
@@ -122,6 +122,36 @@ function persist(state: MockState) {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
+}
+
+function mergePacks(stored?: CreditPack[]): CreditPack[] {
+  const seed = structuredClone(seedCreditPacks);
+  const seedById = new Map(seed.map(item => [item.id, item]));
+  if (!stored?.length) {
+    return seed;
+  }
+  const merged = stored.map((item, index) => {
+    const defaults = seedById.get(item.id);
+    const name =
+      item.name?.trim() ||
+      defaults?.name ||
+      item.id.replace(/-/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+    return {
+      ...defaults,
+      ...item,
+      name,
+      credits: item.credits > 0 ? item.credits : defaults?.credits ?? item.credits,
+      price: item.price > 0 ? item.price : defaults?.price ?? item.price,
+      sortOrder: item.sortOrder ?? defaults?.sortOrder ?? index + 1,
+      active: item.active ?? defaults?.active ?? true,
+    };
+  });
+  for (const item of seed) {
+    if (!merged.some(row => row.id === item.id)) {
+      merged.push({...item, sortOrder: merged.length + 1});
+    }
+  }
+  return merged.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 function mergeServices(stored?: CatalogService[]): CatalogService[] {
@@ -268,7 +298,7 @@ function mergeQuoteRequests(stored?: QuoteRequest[]): QuoteRequest[] {
 function mergeState(stored: Partial<MockState> | null): MockState {
   return {
     admins: stored?.admins?.length ? stored.admins : structuredClone(seedAdmins),
-    packs: stored?.packs?.length ? stored.packs : structuredClone(seedCreditPacks),
+    packs: mergePacks(stored?.packs),
     lookups: stored?.lookups?.length ? stored.lookups : structuredClone(seedLookups),
     settings: stored?.settings ?? structuredClone(seedSettings),
     services: mergeServices(stored?.services),

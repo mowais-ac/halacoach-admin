@@ -49,14 +49,26 @@ export type CreditPackBadge = 'popular' | 'value';
 
 export type CreditPack = {
   id: string;
+  name: string;
   credits: number;
   price: number;
   badge?: CreditPackBadge;
+  sortOrder: number;
   active: boolean;
 };
 
+export type CreateCreditPackInput = {
+  name: string;
+  credits: number;
+  price: number;
+  badge?: CreditPackBadge | null;
+};
+
 export type UpdateCreditPackInput = {
+  name?: string;
+  credits?: number;
   price?: number;
+  badge?: CreditPackBadge | null;
   active?: boolean;
 };
 

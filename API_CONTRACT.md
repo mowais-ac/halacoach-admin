@@ -259,13 +259,19 @@ Includes client snapshot, unlock history, contact visibility rules.
 
 ### `GET /admin/credit-packs`
 
-### `GET /admin/credits`
+### `POST /admin/credit-packs`
 
-Overview: packs, promos, VAT rate, ledger `transactions`, wallet stats.
+**Body:** `{ name, credits, price, badge? }` — `badge` is `popular` \| `value` \| omitted. **Super only.**
+
+Creates a pack (slug from name). Catalog is not limited to starter / growth / scale.
 
 ### `PATCH /admin/credit-packs/:id`
 
-**Body:** `{ price?, active? }` — **Super only.**
+**Body:** `{ name?, credits?, price?, badge?, active? }` — set `badge: null` to clear. **Super only.**
+
+### `GET /admin/credits`
+
+Overview: packs, promos, VAT rate, ledger `transactions`, wallet stats.
 
 ### `POST /admin/promo-codes`
 

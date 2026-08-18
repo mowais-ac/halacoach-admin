@@ -35,6 +35,7 @@ import type {
   UpdateQuoteRequestInput,
   UpdateServiceInput,
   AdjustCreditsInput,
+  CreateCreditPackInput,
   CreatePromoInput,
   ContentLang,
   LegalDocId,
@@ -150,7 +151,36 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
   }
 
   if (path === '/admin/credit-packs' && method === 'GET') {
-    return state.packs as T;
+    return [...state.packs].sort((a, b) => a.sortOrder - b.sortOrder) as T;
+  }
+
+  if (path === '/admin/credit-packs' && method === 'POST') {
+    const input = parseBody<CreateCreditPackInput>(init);
+    const name = input.name?.trim();
+    if (!name) {
+      throw new ApiError(400, 'Pack name is required.');
+    }
+    if (!Number.isFinite(input.credits) || input.credits < 1) {
+      throw new ApiError(400, 'Credits must be at least 1.');
+    }
+    if (!Number.isFinite(input.price) || input.price <= 0) {
+      throw new ApiError(400, 'Price must be greater than zero.');
+    }
+    const id = slugify(name) || `pack-${Date.now()}`;
+    if (state.packs.some(pack => pack.id === id)) {
+      throw new ApiError(409, 'A pack with that name already exists.');
+    }
+    const pack: CreditPack = {
+      id,
+      name,
+      credits: Math.round(input.credits),
+      price: input.price,
+      badge: input.badge || undefined,
+      sortOrder: Math.max(0, ...state.packs.map(item => item.sortOrder)) + 1,
+      active: true,
+    };
+    setMockState({packs: [...state.packs, pack]});
+    return pack as T;
   }
 
   if (path === '/admin/credits' && method === 'GET') {
@@ -253,13 +283,26 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
       if (pack.id !== id) {
         return pack;
       }
+      const name = input.name?.trim() ?? pack.name;
+      if (!name) {
+        throw new ApiError(400, 'Pack name is required.');
+      }
+      const credits = input.credits ?? pack.credits;
+      if (!Number.isFinite(credits) || credits < 1) {
+        throw new ApiError(400, 'Credits must be at least 1.');
+      }
       const price = input.price ?? pack.price;
       if (price <= 0) {
         throw new ApiError(400, 'Price must be greater than zero.');
       }
+      const badge =
+        input.badge === null ? undefined : input.badge !== undefined ? input.badge : pack.badge;
       return {
         ...pack,
+        name,
+        credits: Math.round(credits),
         price,
+        badge,
         active: input.active ?? pack.active,
       } satisfies CreditPack;
     });

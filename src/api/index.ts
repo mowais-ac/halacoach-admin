@@ -43,6 +43,7 @@ import type {
   UpdateSupportTicketInput,
   ConversationDetail,
   ConversationSummary,
+  CreateCreditPackInput,
   DashboardOverview,
 } from './types';
 
@@ -60,6 +61,7 @@ export type {
   ContentLang,
   ConversationDetail,
   ConversationSummary,
+  CreateCreditPackInput,
   CreatePromoInput,
   CreateServiceInput,
   DashboardActivity,
@@ -68,6 +70,7 @@ export type {
   DashboardOverview,
   CreditLedgerEntry,
   CreditPack,
+  CreditPackBadge,
   CreditsOverview,
   CreditPurchase,
   HealthResponse,
@@ -154,6 +157,13 @@ export function listCreditPacks() {
 
 export function getCreditsOverview() {
   return request<CreditsOverview>('/admin/credits');
+}
+
+export function createCreditPack(input: CreateCreditPackInput) {
+  return request<CreditPack>('/admin/credit-packs', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export function updateCreditPack(id: string, input: UpdateCreditPackInput) {
