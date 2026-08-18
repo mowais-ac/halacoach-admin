@@ -1,0 +1,25 @@
+import type {ReactNode} from 'react';
+import {redirect} from 'next/navigation';
+import {getCurrentUser} from '@/lib/current-user';
+import {RouteGuard} from './RouteGuard';
+import {Sidebar} from './Sidebar';
+import {TopBar} from './TopBar';
+
+export async function AdminShell({children}: {children: ReactNode}) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <Sidebar role={user.role} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar name={user.name} email={user.email} role={user.role} />
+        <main className="flex-1 overflow-y-auto p-6">
+          <RouteGuard role={user.role}>{children}</RouteGuard>
+        </main>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafaf8;
+  --foreground: #2f3437;
+  --card: #ffffff;
+  --primary: #0f766e;
+  --primary-deep: #0a5a54;
+  --primary-soft: #e6f5f3;
+  --coral: #f97360;
+  --coral-soft: #fef1ee;
+  --sky: #6ecbf5;
+  --sky-soft: #eff8fd;
+  --muted: #e8ecef;
+  --muted-foreground: #6b7280;
+  --border: #e8ecef;
+  --destructive: #dc2626;
+  --overlay: rgba(47, 52, 55, 0.55);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-deep: var(--primary-deep);
+  --color-primary-soft: var(--primary-soft);
+  --color-coral: var(--coral);
+  --color-coral-soft: var(--coral-soft);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-overlay: var(--overlay);
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Segoe UI", Roboto, Helvetica, Arial;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,50 @@
+import type {CatalogService} from './types';
+
+type SeedRow = [string, string, string];
+
+const rows: SeedRow[] = [
+  ['personal-training', 'Personal Training', 'تدريب شخصي'],
+  ['pilates', 'Pilates', 'بيلاتس'],
+  ['yoga', 'Yoga', 'يوغا'],
+  ['pre-postnatal', 'Pre/Postnatal Fitness', 'لياقة ما قبل وبعد الولادة'],
+  ['calisthenics', 'Calisthenics', 'كاليثينكس'],
+  ['football', 'Football', 'كرة قدم'],
+  ['basketball', 'Basketball', 'كرة سلة'],
+  ['tennis', 'Tennis', 'تنس'],
+  ['padel', 'Padel', 'بادل'],
+  ['running', 'Running', 'ركض'],
+  ['triathlon', 'Triathlon', 'ترياثلون'],
+  ['cycling', 'Cycling', 'دراجات'],
+  ['swimming', 'Swimming', 'سباحة'],
+  ['boxing', 'Boxing', 'ملاكمة'],
+  ['kids-coach', 'Kids Coach', 'مدرب أطفال'],
+  ['women-only', 'Women Only Coach', 'مدربة للنساء فقط'],
+  ['weight-loss', 'Weight Loss', 'خسارة الوزن'],
+  ['group-classes', 'Group Classes', 'حصص جماعية'],
+  ['mobility', 'Mobility & Flexibility', 'مرونة وحركة'],
+  ['corrective-exercise', 'Corrective Exercise', 'تمارين تصحيحية'],
+  ['volleyball', 'Volleyball', 'كرة طائرة'],
+  ['cricket', 'Cricket', 'كريكيت'],
+  ['squash', 'Squash', 'سكواش'],
+  ['badminton', 'Badminton', 'ريشة'],
+  ['table-tennis', 'Table Tennis', 'تنس طاولة'],
+  ['pickleball', 'Pickleball', 'بيكل بول'],
+  ['assisted-stretching', 'Assisted Stretching', 'تمدد بمساعدة'],
+  ['life-coaching', 'Life Coaching', 'تدريب حياة'],
+  ['career-coaching', 'Career Coaching', 'تدريب مهني'],
+  ['breathwork', 'Breathwork', 'تمارين تنفس'],
+  ['meditation', 'Meditation', 'تأمل'],
+  ['mindfulness', 'Mindfulness', 'يقظة ذهنية'],
+  ['stress-burnout', 'Stress & Burnout Coaching', 'تدريب الإجهاد والإرهاق'],
+  ['sound-healing', 'Sound Healing', 'شفاء بالصوت'],
+  ['reiki', 'Energy/Reiki Healing', 'طاقة / ريكي'],
+];
+
+export const seedServices: CatalogService[] = rows.map(([slug, nameEn, nameAr], index) => ({
+  id: `svc-${slug}`,
+  slug,
+  nameEn,
+  nameAr,
+  sortOrder: index + 1,
+  active: true,
+}));

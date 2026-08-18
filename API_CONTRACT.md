@@ -1,0 +1,382 @@
+# HalaCoach Admin API Contract
+
+This document lists **every HTTP route** the admin UI calls today via `src/api/index.ts`. Implement these in `halacoach-apis` under a shared base path (recommended: `/api/v1/admin`).
+
+Until the real API exists, the admin app uses an in-memory mock (`src/api/mock.ts`) with the paths below **without** the `/api/v1` prefix.
+
+---
+
+## Configuration
+
+| Env var | Purpose |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | API origin, e.g. `https://api.halacoach.com/api/v1` |
+| `NEXT_PUBLIC_USE_MOCKS` | `false` to use real HTTP; default `true` |
+
+Session cookie (client): `hc_admin_session` — JSON `{ id, name, email, role }`.
+
+---
+
+## Conventions
+
+- **Content-Type:** `application/json` on POST/PATCH bodies
+- **Success:** `2xx` with JSON body (or empty for future deletes)
+- **Errors:** HTTP `4xx` / `5xx` with a plain-text or JSON `message` the UI can show
+- **IDs:** string slugs/UUIDs as seeded in admin mocks
+- **Timestamps:** ISO 8601 UTC strings
+- **Roles:** `super` \| `reviewer` \| `support` — enforce server-side; UI also gates nav
+
+### Role matrix (minimum)
+
+| Permission | Super | Reviewer | Support |
+|---|---|---|---|
+| Full module access | ✓ | verification, professionals | clients, support, credits (read/adjust) |
+| Settings / admins / content / leads / requests | ✓ | — | — |
+
+---
+
+## Health
+
+### `GET /health`
+
+**Response**
+
+```json
+{ "ok": true, "source": "api", "app": "halacoach-admin" }
+```
+
+---
+
+## Auth (M1)
+
+### `POST /admin/auth/login`
+
+**Body**
+
+```json
+{ "email": "admin@halacoach.local", "password": "Admin123!" }
+```
+
+**Response `200`**
+
+```json
+{
+  "user": {
+    "id": "admin-super",
+    "name": "HalaCoach Admin",
+    "email": "admin@halacoach.local",
+    "role": "super",
+    "active": true,
+    "lastLogin": "2026-08-18T12:00:00.000Z",
+    "createdAt": "2026-08-18T00:00:00.000Z"
+  }
+}
+```
+
+**Errors:** `401` wrong credentials · `403` disabled account
+
+Sign-out is client-only (clears session cookie). No logout endpoint required for v1.
+
+---
+
+## Dashboard (M13)
+
+### `GET /admin/dashboard`
+
+**Response**
+
+```json
+{
+  "counts": {
+    "pendingVerifications": 1,
+    "openLeads": 5,
+    "unlocksToday": 3,
+    "clients": 6,
+    "professionals": 5,
+    "newClientsWeek": 2,
+    "newProsWeek": 1,
+    "creditsSoldAed": 1515.51,
+    "openSupportTickets": 4
+  },
+  "recentActivity": [
+    {
+      "id": "unlock-u-l1024-amina",
+      "kind": "lead_unlock",
+      "title": "Amina Haddad unlocked a lead",
+      "subtitle": "Weight loss · Dubai Marina · 3 credits",
+      "at": "2026-08-18T13:05:00.000Z",
+      "href": "/leads/l-1024"
+    }
+  ]
+}
+```
+
+`recentActivity.kind`: `client_signup` \| `pro_signup` \| `verification_pending` \| `lead_unlock` \| `credit_purchase` \| `support_ticket`
+
+---
+
+## Admin users (M1)
+
+### `GET /admin/admins`
+
+List operators. **Super only.**
+
+### `POST /admin/admins`
+
+Invite admin. **Body:** `{ name, email, role, password }` · **Super only.**
+
+### `PATCH /admin/admins/:id`
+
+**Body:** `{ name?, role?, active?, actorId }` — cannot disable self or last active super.
+
+---
+
+## Settings & lookups (M2)
+
+### `GET /admin/settings`
+
+**Response**
+
+```json
+{
+  "settings": {
+    "otpLength": 4,
+    "otpResendSeconds": 30,
+    "defaultPhonePrefix": "+971",
+    "vatRate": 0.05,
+    "maxGoals": 2
+  },
+  "lookups": [{ "id", "groupId", "value", "label", "sortOrder", "active", "system" }],
+  "groups": [{ "id", "title", "hint", "locked" }]
+}
+```
+
+### `PATCH /admin/settings`
+
+Partial `AppSettings`. **Super only.**
+
+### `POST /admin/lookups`
+
+Add option to unlocked group. **Body:** `{ groupId, label, value? }`
+
+### `PATCH /admin/lookups/:id`
+
+**Body:** `{ label?, active? }`
+
+---
+
+## Services catalog (M3)
+
+### `GET /admin/services`
+
+### `POST /admin/services`
+
+**Body:** `{ nameEn, nameAr, slug? }`
+
+### `PATCH /admin/services/:id`
+
+**Body:** `{ nameEn?, nameAr?, slug?, active? }`
+
+### `POST /admin/services/reorder`
+
+**Body:** `{ ids: string[] }` — full ordered id list
+
+---
+
+## Professionals (M4)
+
+### `GET /admin/professionals`
+
+Summary list with `profileCompletion`, verification, credits, etc.
+
+### `GET /admin/professionals/:id`
+
+Full profile including wallet `txns`, documents, public fields, `notificationPrefs`.
+
+### `PATCH /admin/professionals/:id`
+
+**Body:** contact, services, locations, radius, activation, suspend, public profile fields.
+
+---
+
+## Verification (M5)
+
+### `GET /admin/verification`
+
+Pending queue items (newest submission first).
+
+### `POST /admin/verification/:id/approve`
+
+Sets `verification: verified`, `activated: true`.
+
+### `POST /admin/verification/:id/reject`
+
+**Body:** `{ reason?: string }` — sets `verification: rejected`, `activated: false`.
+
+---
+
+## Clients (M6)
+
+### `GET /admin/clients`
+
+### `GET /admin/clients/:id`
+
+Includes full `answers` (14-step questionnaire), `consents`, `savedCoachIds`, `notificationPrefs`.
+
+### `PATCH /admin/clients/:id`
+
+**Body:** `{ name?, email?, phone?, suspended? }`
+
+---
+
+## Leads (M7)
+
+### `GET /admin/leads`
+
+### `GET /admin/leads/:id`
+
+Includes client snapshot, unlock history, contact visibility rules.
+
+### `PATCH /admin/leads/:id`
+
+**Body:** `{ status?, creditCost? }` — **Super only.**
+
+---
+
+## Quote requests (M8)
+
+### `GET /admin/requests`
+
+### `GET /admin/requests/:id`
+
+### `PATCH /admin/requests/:id`
+
+**Body:** `{ status?, quoteMessage?, quoteAmount? }` — mark quoted/closed.
+
+---
+
+## Credits (M9)
+
+### `GET /admin/credit-packs`
+
+### `GET /admin/credits`
+
+Overview: packs, promos, VAT rate, ledger `transactions`, wallet stats.
+
+### `PATCH /admin/credit-packs/:id`
+
+**Body:** `{ price?, active? }` — **Super only.**
+
+### `POST /admin/promo-codes`
+
+**Body:** `{ code, discountRate }` — rate 0–0.5
+
+### `PATCH /admin/promo-codes/:id`
+
+**Body:** `{ code?, discountRate?, active? }`
+
+### `POST /admin/credit-adjustments`
+
+**Body:** `{ professionalId, credits, label? }` — non-zero integer; creates `adjustment` txn. **Super + support.**
+
+---
+
+## Legal content (M10)
+
+### `GET /admin/content`
+
+Summaries for `terms`, `privacy`, `professional` (EN/AR titles, section counts).
+
+### `GET /admin/content/:docId/:lang`
+
+`docId`: `terms` \| `privacy` \| `professional` · `lang`: `en` \| `ar`
+
+Full document: `{ title, intro, sections[], updatedAt }`.
+
+### `PATCH /admin/content/:docId/:lang`
+
+**Body:** `{ title?, intro?, sections? }` — **Super only.**
+
+---
+
+## Support (M11)
+
+### `GET /admin/support`
+
+Contact-us inbox summaries.
+
+### `GET /admin/support/:id`
+
+Ticket + user contact + `notificationPrefs`.
+
+### `PATCH /admin/support/:id`
+
+**Body:** `{ status?, replyNote?, actorName? }` — `new` \| `replied` \| `closed`.
+
+---
+
+## Messages (M12, read-only)
+
+### `GET /admin/messages`
+
+Conversation list (client ↔ professional).
+
+### `GET /admin/messages/:id`
+
+Thread with `messages[]`: `{ id, author: client|professional|system, body, sentAt }`.
+
+No write endpoints in v1.
+
+---
+
+## Shared types (reference)
+
+Key enums used across modules:
+
+| Domain | Values |
+|---|---|
+| Verification | `none`, `pending`, `verified`, `rejected` |
+| Quote request | `pending`, `quoted`, `closed` |
+| Lead status | `open`, `closed` |
+| Credit txn | `purchase`, `spend`, `adjustment` |
+| Support ticket | `new`, `replied`, `closed` |
+| Payment method | `card`, `applepay` |
+
+TypeScript source of truth: `src/api/types.ts`, `src/api/lookups.ts`.
+
+---
+
+## Mock → API migration checklist
+
+1. Stand up `halacoach-apis` with Postgres models matching seed data in `src/api/*-seed.ts`.
+2. Mount routes above under `/api/v1/admin/*`.
+3. Replace plain-text errors with consistent JSON: `{ "message": "..." }`.
+4. Add JWT or session middleware; validate role per route.
+5. Set `NEXT_PUBLIC_API_URL` + `NEXT_PUBLIC_USE_MOCKS=false` on admin deploy.
+6. Keep response shapes identical — admin screens should not change.
+
+---
+
+## Admin module map
+
+| Module | Routes prefix | UI path |
+|---|---|---|
+| M0 Foundation | — | shell, shared UI |
+| M1 Auth | `/admin/auth`, `/admin/admins` | `/login`, `/admins` |
+| M2 Settings | `/admin/settings`, `/admin/lookups` | `/settings` |
+| M3 Services | `/admin/services` | `/services` |
+| M4 Professionals | `/admin/professionals` | `/professionals` |
+| M5 Verification | `/admin/verification` | `/verification` |
+| M6 Clients | `/admin/clients` | `/clients` |
+| M7 Leads | `/admin/leads` | `/leads` |
+| M8 Requests | `/admin/requests` | `/requests` |
+| M9 Credits | `/admin/credits`, packs, promos, adjustments | `/credits` |
+| M10 Content | `/admin/content` | `/content` |
+| M11 Support | `/admin/support` | `/support` |
+| M12 Messages | `/admin/messages` | `/messages` |
+| M13 Dashboard | `/admin/dashboard` | `/` |
+| M14 Polish | this document | — |
+
+---
+
+*Generated for handoff from `halacoach-admin` mock client. Update this file when adding new admin screens.*

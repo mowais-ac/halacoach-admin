@@ -1,0 +1,165 @@
+'use client';
+
+import Link from 'next/link';
+import {useEffect, useMemo, useState} from 'react';
+import {ChevronRight} from 'lucide-react';
+import {isApiError, listLeads, type LeadSummary, type SessionUser} from '@/api';
+import {Badge} from '@/components/ui/Badge';
+import {Button} from '@/components/ui/Button';
+import {DataTable, FilterBar} from '@/components/ui/DataTable';
+import {EmptyState} from '@/components/ui/EmptyState';
+import {ErrorState} from '@/components/ui/ErrorState';
+import {LoadingState} from '@/components/ui/LoadingState';
+import {PageHeader} from '@/components/ui/PageHeader';
+import {formatPostedAt} from '@/lib/lead-utils';
+
+type Filter = 'all' | 'open' | 'unlocked' | 'closed';
+
+export function LeadsScreen({actor}: {actor: SessionUser}) {
+  const [rows, setRows] = useState<LeadSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      setRows(await listLeads());
+    } catch (err) {
+      setError(isApiError(err) ? err.message : 'Could not load leads.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter(row => {
+      if (filter === 'open' && (row.status !== 'open' || row.unlockCount > 0)) {
+        return false;
+      }
+      if (filter === 'unlocked' && row.unlockCount === 0) {
+        return false;
+      }
+      if (filter === 'closed' && row.status !== 'closed') {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      return (
+        row.goal.toLowerCase().includes(q) ||
+        row.clientName.toLowerCase().includes(q) ||
+        row.location.toLowerCase().includes(q) ||
+        row.serviceSlug.includes(q)
+      );
+    });
+  }, [rows, filter, query]);
+
+  const counts = useMemo(
+    () => ({
+      all: rows.length,
+      open: rows.filter(row => row.status === 'open' && row.unlockCount === 0).length,
+      unlocked: rows.filter(row => row.unlockCount > 0).length,
+      closed: rows.filter(row => row.status === 'closed').length,
+    }),
+    [rows],
+  );
+
+  if (loading) {
+    return <LoadingState label="Loading leads…" />;
+  }
+
+  if (error) {
+    return <ErrorState body={error} onRetry={() => void load()} />;
+  }
+
+  return (
+    <>
+      <PageHeader
+        module="M7"
+        title="Leads"
+        description="Client requests in the marketplace, credit unlock cost, and which coaches unlocked contact details."
+      />
+
+      <FilterBar>
+        {(
+          [
+            ['all', 'All'],
+            ['open', 'New'],
+            ['unlocked', 'Unlocked'],
+            ['closed', 'Closed'],
+          ] as const
+        ).map(([key, label]) => (
+          <Button
+            key={key}
+            variant={filter === key ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilter(key)}>
+            {label} ({counts[key]})
+          </Button>
+        ))}
+        <input
+          className="ms-auto h-9 min-w-[200px] rounded-xl border border-border px-3 text-sm"
+          placeholder="Search goal, client, location…"
+          value={query}
+          onChange={event => setQuery(event.target.value)}
+        />
+      </FilterBar>
+
+      {visible.length === 0 ? (
+        <EmptyState title="No leads match" body="Try another filter or clear the search box." />
+      ) : (
+        <DataTable
+          columns={['Goal', 'Client', 'Location', 'Match', 'Cost', 'Unlocks', 'Posted', '']}>
+          {visible.map(row => (
+            <tr key={row.id} className="border-b border-border last:border-0">
+              <td className="px-4 py-3">
+                <div className="font-medium text-foreground">{row.goal}</div>
+                <div className="text-xs text-muted-foreground">{row.serviceSlug}</div>
+              </td>
+              <td className="px-4 py-3 text-sm">{row.clientName}</td>
+              <td className="px-4 py-3 text-muted-foreground">{row.location}</td>
+              <td className="px-4 py-3">
+                <Badge tone="sky">{row.matchScore}%</Badge>
+              </td>
+              <td className="px-4 py-3 font-medium">{row.creditCost} cr</td>
+              <td className="px-4 py-3">
+                {row.unlockCount > 0 ? (
+                  <Badge tone="primary">{row.unlockCount}</Badge>
+                ) : (
+                  <Badge tone="muted">0</Badge>
+                )}
+              </td>
+              <td className="px-4 py-3 text-sm text-muted-foreground">
+                {formatPostedAt(row.postedAt)}
+              </td>
+              <td className="px-4 py-3 text-end">
+                <div className="flex items-center justify-end gap-2">
+                  {row.status === 'closed' ? <Badge tone="danger">Closed</Badge> : null}
+                  <Link
+                    href={`/leads/${row.id}`}
+                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                    View
+                    <ChevronRight size={16} />
+                  </Link>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      )}
+
+      <p className="mt-4 text-xs text-muted-foreground">
+        Signed in as {actor.name} ({actor.role}). Coaches spend credits to unlock client contact on
+        each lead.
+      </p>
+    </>
+  );
+}
