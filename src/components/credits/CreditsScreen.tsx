@@ -755,7 +755,12 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                   <Button
                     size="sm"
                     className={creditPackageActionButtonClass}
-                    disabled={creatingCreditPackage}
+                    disabled={
+                      creatingCreditPackage ||
+                      !creditPackageForm.name.trim() ||
+                      !(Number(creditPackageForm.credits) >= 1) ||
+                      !(Number(creditPackageForm.price) > 0)
+                    }
                     onClick={() => void submitCreateCreditPackage()}>
                     {creatingCreditPackage ? (
                       <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
