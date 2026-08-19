@@ -4,7 +4,7 @@ import {mockRequest} from '@/api/mock';
 // Paths that have real API endpoints implemented.
 // Everything else falls back to mocks.
 // Add new paths here as real APIs are built.
-const REAL_API_PATHS = ['/admin/credit-packages'];
+const REAL_API_PATHS = ['/v1/credit-packages'];
 
 function isRealApiPath(path: string): boolean {
   return REAL_API_PATHS.some((prefix) => path.startsWith(prefix));

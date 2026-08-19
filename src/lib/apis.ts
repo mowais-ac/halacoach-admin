@@ -4,18 +4,18 @@ import type {CreditPackage, CreateCreditPackageInput, UpdateCreditPackageInput} 
 // ── Credit Packages ───────────────────────────────────────────────────────────
 
 export function listCreditPackages() {
-  return request<CreditPackage[]>('/admin/credit-packages');
+  return request<CreditPackage[]>('/v1/credit-packages');
 }
 
 export function createCreditPackage(input: CreateCreditPackageInput) {
-  return request<CreditPackage>('/admin/credit-packages', {
+  return request<CreditPackage>('/v1/credit-packages', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function updateCreditPackage(id: string, input: UpdateCreditPackageInput) {
-  return request<CreditPackage>(`/admin/credit-packages/${id}`, {
+  return request<CreditPackage>(`/v1/credit-packages/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
