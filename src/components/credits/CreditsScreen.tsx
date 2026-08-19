@@ -38,7 +38,13 @@ type PackDraft = {
   badge: CreditPackBadge | '';
 };
 
+type PromoDraft = {
+  code: string;
+  discountRate: string;
+};
+
 const emptyPackForm: PackDraft = {name: '', credits: '', price: '', badge: ''};
+const emptyPromoForm: PromoDraft = {code: '', discountRate: '10'};
 
 const tableInputClass =
   'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
@@ -50,6 +56,55 @@ const packArchiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
 
 function PackTableCell({children, className}: {children: React.ReactNode; className?: string}) {
   return <div className={cn(packTableCellClass, className)}>{children}</div>;
+}
+
+function CatalogActions({
+  isEditing,
+  saving,
+  onCancel,
+  onSave,
+  onEdit,
+  toggleLabel,
+  onToggle,
+}: {
+  isEditing: boolean;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+  onEdit: () => void;
+  toggleLabel: string;
+  onToggle: () => void;
+}) {
+  return (
+    <PackTableCell className="justify-end gap-1">
+      {isEditing ? (
+        <Button size="sm" variant="outline" className={packActionButtonClass} onClick={onCancel}>
+          Cancel
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+          tabIndex={-1}
+          aria-hidden>
+          Cancel
+        </Button>
+      )}
+      {isEditing ? (
+        <Button size="sm" className={packActionButtonClass} disabled={saving} onClick={onSave}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" className={packActionButtonClass} onClick={onEdit}>
+          Edit
+        </Button>
+      )}
+      <Button size="sm" variant="outline" className={packArchiveButtonClass} onClick={onToggle}>
+        {toggleLabel}
+      </Button>
+    </PackTableCell>
+  );
 }
 
 export function CreditsScreen({actor}: {actor: SessionUser}) {
@@ -65,8 +120,11 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [savingPack, setSavingPack] = useState<string | null>(null);
   const [editingPackId, setEditingPackId] = useState<string | null>(null);
   const [txnFilter, setTxnFilter] = useState<TxnFilter>('all');
-  const [promoForm, setPromoForm] = useState({code: '', discountRate: '10'});
+  const [promoDrafts, setPromoDrafts] = useState<Record<string, PromoDraft>>({});
+  const [promoForm, setPromoForm] = useState<PromoDraft>(emptyPromoForm);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [savingPromo, setSavingPromo] = useState<string | null>(null);
+  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [adjustForm, setAdjustForm] = useState({
     professionalId: '',
     credits: '',
@@ -92,6 +150,17 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
               credits: String(pack.credits),
               price: String(pack.price),
               badge: pack.badge ?? '',
+            },
+          ]),
+        ),
+      );
+      setPromoDrafts(
+        Object.fromEntries(
+          credits.promos.map(promo => [
+            promo.id,
+            {
+              code: promo.code,
+              discountRate: String(Math.round(promo.discountRate * 100)),
             },
           ]),
         ),
@@ -239,19 +308,91 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const togglePromo = async (id: string, active: boolean) => {
     try {
       await updatePromoCode(id, {active});
+      setEditingPromoId(current => (current === id ? null : current));
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update promo code.');
     }
   };
 
-  const onCreatePromo = async (event: FormEvent) => {
-    event.preventDefault();
-    setPromoError(null);
-    const rate = Number(promoForm.discountRate) / 100;
+  const savePromo = async (promoId: string) => {
+    const draft = promoDrafts[promoId];
+    const code = draft?.code.trim().toUpperCase() ?? '';
+    const discountRate = Number(draft?.discountRate);
+    if (!code) {
+      setError('Promo code cannot be empty.');
+      return;
+    }
+    if (!Number.isFinite(discountRate) || discountRate < 1 || discountRate > 50) {
+      setError('Discount must be between 1% and 50%.');
+      return;
+    }
+    setSavingPromo(promoId);
+    setError(null);
     try {
-      await createPromoCode({code: promoForm.code, discountRate: rate});
-      setPromoForm({code: '', discountRate: '10'});
+      await updatePromoCode(promoId, {
+        code,
+        discountRate: discountRate / 100,
+      });
+      setEditingPromoId(current => (current === promoId ? null : current));
+      await load();
+    } catch (err) {
+      setError(isApiError(err) ? err.message : 'Could not update promo code.');
+    } finally {
+      setSavingPromo(null);
+    }
+  };
+
+  const startEditPromo = (promo: CreditsOverview['promos'][number]) => {
+    if (editingPromoId && editingPromoId !== promo.id) {
+      const previous = overview?.promos.find(item => item.id === editingPromoId);
+      if (previous) {
+        setPromoDrafts(state => ({
+          ...state,
+          [previous.id]: {
+            code: previous.code,
+            discountRate: String(Math.round(previous.discountRate * 100)),
+          },
+        }));
+      }
+    }
+    setEditingPromoId(promo.id);
+    setPromoDrafts(state => ({
+      ...state,
+      [promo.id]: {
+        code: promo.code,
+        discountRate: String(Math.round(promo.discountRate * 100)),
+      },
+    }));
+    setError(null);
+  };
+
+  const cancelEditPromo = (promo: CreditsOverview['promos'][number]) => {
+    setPromoDrafts(state => ({
+      ...state,
+      [promo.id]: {
+        code: promo.code,
+        discountRate: String(Math.round(promo.discountRate * 100)),
+      },
+    }));
+    setEditingPromoId(current => (current === promo.id ? null : current));
+  };
+
+  const submitCreatePromo = async () => {
+    setPromoError(null);
+    const code = promoForm.code.trim().toUpperCase();
+    const discountRate = Number(promoForm.discountRate);
+    if (!code) {
+      setPromoError('Code is required.');
+      return;
+    }
+    if (!Number.isFinite(discountRate) || discountRate < 1 || discountRate > 50) {
+      setPromoError('Discount must be between 1% and 50%.');
+      return;
+    }
+    try {
+      await createPromoCode({code, discountRate: discountRate / 100});
+      setPromoForm(emptyPromoForm);
       await load();
     } catch (err) {
       setPromoError(isApiError(err) ? err.message : 'Could not create promo code.');
@@ -479,50 +620,15 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                 </td>
                 {canWrite ? (
                   <td className="px-4 py-2">
-                    <PackTableCell className="justify-end gap-1">
-                      {isEditing ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={packActionButtonClass}
-                          onClick={() => cancelEditPack(pack)}>
-                          Cancel
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={cn(packActionButtonClass, 'invisible pointer-events-none')}
-                          tabIndex={-1}
-                          aria-hidden>
-                          Cancel
-                        </Button>
-                      )}
-                      {isEditing ? (
-                        <Button
-                          size="sm"
-                          className={packActionButtonClass}
-                          disabled={savingPack === pack.id}
-                          onClick={() => void savePack(pack.id)}>
-                          {savingPack === pack.id ? 'Saving…' : 'Save'}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={packActionButtonClass}
-                          onClick={() => startEditPack(pack)}>
-                          Edit
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className={packArchiveButtonClass}
-                        onClick={() => void togglePack(pack.id, !pack.active)}>
-                        {pack.active ? 'Archive' : 'Restore'}
-                      </Button>
-                    </PackTableCell>
+                    <CatalogActions
+                      isEditing={isEditing}
+                      saving={savingPack === pack.id}
+                      onCancel={() => cancelEditPack(pack)}
+                      onSave={() => void savePack(pack.id)}
+                      onEdit={() => startEditPack(pack)}
+                      toggleLabel={pack.active ? 'Archive' : 'Restore'}
+                      onToggle={() => void togglePack(pack.id, !pack.active)}
+                    />
                   </td>
                 ) : null}
               </tr>
@@ -628,57 +734,158 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
       </div>
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Promo codes</h2>
-      {canWrite ? (
-        <Card className="mb-4">
-          <form onSubmit={onCreatePromo} className="flex flex-wrap items-end gap-3">
-            <Input
-              label="Code"
-              value={promoForm.code}
-              onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})}
-              placeholder="HALA10"
-              required
-            />
-            <Input
-              label="Discount %"
-              type="number"
-              min={1}
-              max={50}
-              value={promoForm.discountRate}
-              onChange={e => setPromoForm({...promoForm, discountRate: e.target.value})}
-              required
-            />
-            <Button type="submit">Add promo</Button>
-          </form>
-          {promoError ? <p className="mt-2 text-sm text-destructive">{promoError}</p> : null}
-        </Card>
-      ) : null}
-      <DataTable columns={['Code', 'Discount', 'Status', canWrite ? 'Actions' : '']}>
-        {overview.promos.map(promo => (
-          <tr key={promo.id} className="border-b border-border last:border-0">
-            <td className="px-4 py-3 font-mono font-medium">{promo.code}</td>
-            <td className="px-4 py-3">{formatDiscount(promo.discountRate)}</td>
-            <td className="px-4 py-3">
-              {promo.active ? (
-                <Badge tone="primary">Active</Badge>
-              ) : (
-                <Badge tone="muted">Inactive</Badge>
-              )}
-            </td>
-            {canWrite ? (
-              <td className="px-4 py-3">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void togglePromo(promo.id, !promo.active)}>
-                  {promo.active ? 'Deactivate' : 'Activate'}
-                </Button>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Discount codes applied at pro checkout. Add, edit, or deactivate promos — discount is a
+        percentage off the pack subtotal.
+      </p>
+      <div className="mb-8">
+        <DataTable
+          tableClassName="table-fixed"
+          columnWidths={canWrite ? ['28%', '18%', '18%', '36%'] : ['40%', '30%', '30%']}
+          columns={
+            canWrite ? ['Code', 'Discount %', 'Status', 'Actions'] : ['Code', 'Discount %', 'Status']
+          }>
+          {overview.promos.map(promo => {
+            const draft = promoDrafts[promo.id] ?? {
+              code: promo.code,
+              discountRate: String(Math.round(promo.discountRate * 100)),
+            };
+            const isEditing = canWrite && editingPromoId === promo.id;
+
+            return (
+              <tr
+                key={promo.id}
+                className={cn(
+                  'border-b border-border last:border-0',
+                  !promo.active && 'bg-muted/30',
+                  isEditing && 'bg-primary-soft/30',
+                )}>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <input
+                        className={cn(tableInputClass, 'font-mono uppercase')}
+                        value={draft.code}
+                        onChange={e =>
+                          setPromoDrafts(state => ({
+                            ...state,
+                            [promo.id]: {...draft, code: e.target.value.toUpperCase()},
+                          }))
+                        }
+                      />
+                    ) : (
+                      <span className="font-mono font-medium text-foreground">{promo.code}</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <input
+                        className={cn(tableInputClass, 'max-w-[6rem]')}
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={draft.discountRate}
+                        onChange={e =>
+                          setPromoDrafts(state => ({
+                            ...state,
+                            [promo.id]: {...draft, discountRate: e.target.value},
+                          }))
+                        }
+                      />
+                    ) : (
+                      <span className="text-foreground">{formatDiscount(promo.discountRate)}</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {promo.active ? (
+                      <Badge tone="primary">Active</Badge>
+                    ) : (
+                      <Badge tone="muted">Inactive</Badge>
+                    )}
+                  </PackTableCell>
+                </td>
+                {canWrite ? (
+                  <td className="px-4 py-2">
+                    <CatalogActions
+                      isEditing={isEditing}
+                      saving={savingPromo === promo.id}
+                      onCancel={() => cancelEditPromo(promo)}
+                      onSave={() => void savePromo(promo.id)}
+                      onEdit={() => startEditPromo(promo)}
+                      toggleLabel={promo.active ? 'Deactivate' : 'Activate'}
+                      onToggle={() => void togglePromo(promo.id, !promo.active)}
+                    />
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
+          {canWrite ? (
+            <tr className="border-t-2 border-border bg-primary-soft/40">
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <input
+                    className={cn(tableInputClass, 'font-mono uppercase')}
+                    value={promoForm.code}
+                    onChange={e =>
+                      setPromoForm(form => ({...form, code: e.target.value.toUpperCase()}))
+                    }
+                    placeholder="HALA10"
+                  />
+                </PackTableCell>
               </td>
-            ) : (
-              <td className="px-4 py-3" />
-            )}
-          </tr>
-        ))}
-      </DataTable>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <input
+                    className={cn(tableInputClass, 'max-w-[6rem]')}
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={promoForm.discountRate}
+                    onChange={e =>
+                      setPromoForm(form => ({...form, discountRate: e.target.value}))
+                    }
+                    placeholder="10"
+                  />
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <Badge tone="sky">New</Badge>
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell className="justify-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+                    tabIndex={-1}
+                    aria-hidden>
+                    Cancel
+                  </Button>
+                  <Button size="sm" className={packActionButtonClass} onClick={() => void submitCreatePromo()}>
+                    Add
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(packArchiveButtonClass, 'invisible pointer-events-none')}
+                    tabIndex={-1}
+                    aria-hidden>
+                    Deactivate
+                  </Button>
+                </PackTableCell>
+              </td>
+            </tr>
+          ) : null}
+        </DataTable>
+        {promoError ? <p className="mt-2 text-sm text-destructive">{promoError}</p> : null}
+      </div>
 
       <h2 className="mb-3 mt-8 text-lg font-semibold text-foreground">Transactions</h2>
       <FilterBar>
