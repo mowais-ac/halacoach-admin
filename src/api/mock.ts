@@ -21,7 +21,6 @@ import type {
   LoginInput,
   MarketplaceLead,
   Professional,
-  PromoCode,
   QuoteRequest,
   RejectVerificationInput,
   SessionResponse,
@@ -29,11 +28,9 @@ import type {
   UpdateClientInput,
   UpdateLeadInput,
   UpdateProfessionalInput,
-  UpdatePromoInput,
   UpdateQuoteRequestInput,
   UpdateServiceInput,
   AdjustCreditsInput,
-  CreatePromoInput,
   ContentLang,
   LegalDocId,
   LegalDocument,
@@ -151,60 +148,12 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
     const overview = buildCreditsOverview({
       settings: state.settings,
       packs: [],
-      promos: state.promos,
+      promos: [],
       professionals: state.professionals,
       purchases: state.creditPurchases,
     });
-    const {packs: _packs, ...rest} = overview;
+    const {packs: _packs, promos: _promos, ...rest} = overview;
     return rest as T;
-  }
-
-  if (path === '/admin/promo-codes' && method === 'POST') {
-    const input = parseBody<CreatePromoInput>(init);
-    const code = input.code?.trim().toUpperCase();
-    if (!code || code.length < 4) {
-      throw new ApiError(400, 'Promo code must be at least 4 characters.');
-    }
-    if (state.promos.some(item => item.code === code)) {
-      throw new ApiError(409, 'That promo code already exists.');
-    }
-    if (input.discountRate <= 0 || input.discountRate > 0.5) {
-      throw new ApiError(400, 'Discount must be between 1% and 50%.');
-    }
-    const promo: PromoCode = {
-      id: `promo-${code.toLowerCase()}-${Date.now()}`,
-      code,
-      discountRate: input.discountRate,
-      active: true,
-      createdAt: new Date().toISOString(),
-    };
-    setMockState({promos: [...state.promos, promo]});
-    return promo as T;
-  }
-
-  const promoMatch = path.match(/^\/admin\/promo-codes\/([^/]+)$/);
-  if (promoMatch && method === 'PATCH') {
-    const id = promoMatch[1];
-    const input = parseBody<UpdatePromoInput>(init);
-    const current = state.promos.find(item => item.id === id);
-    if (!current) {
-      throw new ApiError(404, 'Promo code not found.');
-    }
-    const code = input.code?.trim().toUpperCase() || current.code;
-    if (state.promos.some(item => item.id !== id && item.code === code)) {
-      throw new ApiError(409, 'That promo code already exists.');
-    }
-    if (input.discountRate !== undefined && (input.discountRate <= 0 || input.discountRate > 0.5)) {
-      throw new ApiError(400, 'Discount must be between 1% and 50%.');
-    }
-    const next: PromoCode = {
-      ...current,
-      code,
-      discountRate: input.discountRate ?? current.discountRate,
-      active: input.active ?? current.active,
-    };
-    setMockState({promos: state.promos.map(item => (item.id === id ? next : item))});
-    return next as T;
   }
 
   if (path === '/admin/credit-adjustments' && method === 'POST') {

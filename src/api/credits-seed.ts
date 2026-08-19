@@ -1,21 +1,4 @@
-import type {CreditPurchase, PromoCode} from './types';
-
-export const seedPromoCodes: PromoCode[] = [
-  {
-    id: 'promo-hala10',
-    code: 'HALA10',
-    discountRate: 0.1,
-    active: true,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
-  {
-    id: 'promo-coach20',
-    code: 'COACH20',
-    discountRate: 0.2,
-    active: false,
-    createdAt: '2026-06-01T00:00:00.000Z',
-  },
-];
+import type {CreditPurchase} from './types';
 
 export const seedCreditPurchases: CreditPurchase[] = [
   {

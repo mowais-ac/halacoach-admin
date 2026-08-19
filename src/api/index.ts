@@ -16,7 +16,6 @@ import type {
   LookupOption,
   Professional,
   ProfessionalSummary,
-  PromoCode,
   QuoteRequestDetail,
   QuoteRequestSummary,
   RejectVerificationInput,
@@ -26,12 +25,10 @@ import type {
   UpdateLeadInput,
   UpdateLegalDocumentInput,
   UpdateProfessionalInput,
-  UpdatePromoInput,
   UpdateQuoteRequestInput,
   UpdateServiceInput,
   VerificationQueueItem,
   AdjustCreditsInput,
-  CreatePromoInput,
   ContentLang,
   LegalDocId,
   LegalDocument,
@@ -149,27 +146,16 @@ export function updateAdmin(id: string, input: UpdateAdminInput & {actorId: stri
 }
 
 export async function getCreditsOverview(): Promise<CreditsOverview> {
-  const {listCreditPackages} = await import('@/lib/apis');
-  const [packs, rest] = await Promise.all([
+  const {listCreditPackages, listPromoCodes} = await import('@/lib/apis');
+  const [packs, promos, rest] = await Promise.all([
     listCreditPackages(),
-    request<Omit<CreditsOverview, 'packs'>>('/admin/credits-meta'),
+    listPromoCodes(),
+    request<Omit<CreditsOverview, 'packs' | 'promos'>>('/admin/credits-meta'),
   ]);
-  return {...rest, packs};
+  return {...rest, packs, promos};
 }
 
-export function createPromoCode(input: CreatePromoInput) {
-  return request<PromoCode>('/admin/promo-codes', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updatePromoCode(id: string, input: UpdatePromoInput) {
-  return request<PromoCode>(`/admin/promo-codes/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
-}
+export {createPromoCode, listPromoCodes, updatePromoCode} from '@/lib/apis';
 
 export function adjustCredits(input: AdjustCreditsInput) {
   return request<Professional>(`/admin/credit-adjustments`, {

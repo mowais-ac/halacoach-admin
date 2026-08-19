@@ -1,9 +1,9 @@
-import type {AdminRecord, AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, PromoCode, QuoteRequest, SupportTicket} from './types';
+import type {AdminRecord, AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
 import {seedConversations} from './messages-seed';
 import {seedSupportTickets} from './support-seed';
 import {seedLegalDocuments} from './content-seed';
 import type {AppSettings, LookupOption} from './lookups';
-import {seedCreditPurchases, seedPromoCodes} from './credits-seed';
+import {seedCreditPurchases} from './credits-seed';
 import {seedClients} from './clients-seed';
 import {seedLeads} from './leads-seed';
 import {seedLookups, seedSettings} from './lookups-seed';
@@ -58,7 +58,6 @@ export type MockState = {
   clients: Client[];
   leads: MarketplaceLead[];
   quoteRequests: QuoteRequest[];
-  promos: PromoCode[];
   creditPurchases: CreditPurchase[];
   legalDocuments: LegalDocument[];
   supportTickets: SupportTicket[];
@@ -74,7 +73,6 @@ const memory: MockState = {
   clients: structuredClone(seedClients),
   leads: structuredClone(seedLeads),
   quoteRequests: structuredClone(seedQuoteRequests),
-  promos: structuredClone(seedPromoCodes),
   creditPurchases: structuredClone(seedCreditPurchases),
   legalDocuments: structuredClone(seedLegalDocuments),
   supportTickets: structuredClone(seedSupportTickets),
@@ -105,7 +103,6 @@ function persist(state: MockState) {
   memory.clients = state.clients;
   memory.leads = state.leads;
   memory.quoteRequests = state.quoteRequests;
-  memory.promos = state.promos;
   memory.creditPurchases = state.creditPurchases;
   memory.legalDocuments = state.legalDocuments;
   memory.supportTickets = state.supportTickets;
@@ -267,7 +264,6 @@ function mergeState(stored: Partial<MockState> | null): MockState {
     clients: mergeClients(stored?.clients),
     leads: mergeLeads(stored?.leads),
     quoteRequests: mergeQuoteRequests(stored?.quoteRequests),
-    promos: stored?.promos?.length ? stored.promos : structuredClone(seedPromoCodes),
     creditPurchases: stored?.creditPurchases?.length
       ? stored.creditPurchases
       : structuredClone(seedCreditPurchases),
@@ -287,7 +283,6 @@ export function getMockState(): MockState {
   memory.clients = next.clients;
   memory.leads = next.leads;
   memory.quoteRequests = next.quoteRequests;
-  memory.promos = next.promos;
   memory.creditPurchases = next.creditPurchases;
   memory.legalDocuments = next.legalDocuments;
   memory.supportTickets = next.supportTickets;
@@ -306,7 +301,6 @@ export function setMockState(patch: Partial<MockState>) {
     clients: patch.clients ?? current.clients,
     leads: patch.leads ?? current.leads,
     quoteRequests: patch.quoteRequests ?? current.quoteRequests,
-    promos: patch.promos ?? current.promos,
     creditPurchases: patch.creditPurchases ?? current.creditPurchases,
     legalDocuments: patch.legalDocuments ?? current.legalDocuments,
     supportTickets: patch.supportTickets ?? current.supportTickets,

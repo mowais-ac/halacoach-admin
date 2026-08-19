@@ -63,3 +63,16 @@ export function formatAed(amount: number) {
 export function formatDiscount(rate: number) {
   return `${Math.round(rate * 100)}% off`;
 }
+
+export function formatPromoBenefit(promo: Pick<PromoCode, 'benefitType' | 'benefitValue'>) {
+  switch (promo.benefitType) {
+    case 'percent_off':
+      return formatDiscount(promo.benefitValue);
+    case 'fixed_off':
+      return `${formatAed(promo.benefitValue)} off`;
+    case 'bonus_credits':
+      return `+${promo.benefitValue} credits`;
+    default:
+      return '—';
+  }
+}

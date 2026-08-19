@@ -72,22 +72,27 @@ export type UpdateCreditPackageInput = {
   active?: boolean;
 };
 
+export type PromoBenefitType = 'percent_off' | 'fixed_off' | 'bonus_credits';
+
 export type PromoCode = {
   id: string;
   code: string;
-  discountRate: number;
+  benefitType: PromoBenefitType;
+  benefitValue: number;
   active: boolean;
   createdAt: string;
 };
 
 export type CreatePromoInput = {
   code: string;
-  discountRate: number;
+  benefitType: PromoBenefitType;
+  benefitValue: number;
 };
 
 export type UpdatePromoInput = {
   code?: string;
-  discountRate?: number;
+  benefitType?: PromoBenefitType;
+  benefitValue?: number;
   active?: boolean;
 };
 

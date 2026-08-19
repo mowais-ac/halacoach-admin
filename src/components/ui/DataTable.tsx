@@ -7,12 +7,14 @@ export function DataTable({
   className,
   tableClassName,
   columnWidths,
+  columnHeaderClassNames,
 }: {
   columns: string[];
   children: ReactNode;
   className?: string;
   tableClassName?: string;
   columnWidths?: string[];
+  columnHeaderClassNames?: (string | undefined)[];
 }) {
   return (
     <div className={cn('overflow-x-auto rounded-2xl border border-border bg-card', className)}>
@@ -26,8 +28,10 @@ export function DataTable({
         ) : null}
         <thead className="border-b border-border bg-muted/60 text-muted-foreground">
           <tr>
-            {columns.map(col => (
-              <th key={col} className="px-4 py-3 font-semibold">
+            {columns.map((col, index) => (
+              <th
+                key={col}
+                className={cn('px-4 py-3 font-semibold', columnHeaderClassNames?.[index])}>
                 {col}
               </th>
             ))}

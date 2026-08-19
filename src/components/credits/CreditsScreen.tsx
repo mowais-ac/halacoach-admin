@@ -3,28 +3,32 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {
   adjustCredits,
-  createPromoCode,
-  getCreditsOverview,
   isApiError,
   listProfessionals,
-  updatePromoCode,
   type CreditsOverview,
   type ProfessionalSummary,
   type SessionUser,
 } from '@/api';
-import {createCreditPackage, listCreditPackages, updateCreditPackage} from '@/lib/apis';
-import type {CreditPackage, CreditPackageBadge} from '@/api/types';
+import {
+  createCreditPackage,
+  createPromoCode,
+  listCreditPackages,
+  listPromoCodes,
+  updateCreditPackage,
+  updatePromoCode,
+} from '@/lib/apis';
+import {request} from '@/lib/request';
+import type {CreditPackage, CreditPackageBadge, PromoBenefitType, PromoCode} from '@/api/types';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
 import {ConfirmDialog} from '@/components/ui/ConfirmDialog';
 import {DataTable, FilterBar} from '@/components/ui/DataTable';
 import {EmptyState} from '@/components/ui/EmptyState';
-import {ErrorState} from '@/components/ui/ErrorState';
 import {Input} from '@/components/ui/Input';
 import {LoadingState} from '@/components/ui/LoadingState';
 import {PageHeader} from '@/components/ui/PageHeader';
-import {formatAed, formatDiscount} from '@/lib/credit-utils';
+import {formatAed, formatPromoBenefit} from '@/lib/credit-utils';
 import {cn} from '@/lib/cn';
 import {can} from '@/lib/permissions';
 
@@ -39,11 +43,77 @@ type CreditPackageDraft = {
 
 type PromoDraft = {
   code: string;
-  discountRate: string;
+  benefitType: PromoBenefitType;
+  benefitValue: string;
 };
 
+const PROMO_BENEFIT_OPTIONS: {value: PromoBenefitType; label: string}[] = [
+  {value: 'percent_off', label: 'Percentage off'},
+  {value: 'fixed_off', label: 'Fixed amount (AED)'},
+  {value: 'bonus_credits', label: 'Bonus credits'},
+];
+
 const emptyCreditPackageForm: CreditPackageDraft = {name: '', credits: '', price: '', badge: ''};
-const emptyPromoForm: PromoDraft = {code: '', discountRate: '10'};
+const emptyPromoForm: PromoDraft = {code: '', benefitType: 'percent_off', benefitValue: '10'};
+
+function promoDraftFromPromo(promo: PromoCode): PromoDraft {
+  const benefitType = promo.benefitType ?? 'percent_off';
+  const benefitValue = promo.benefitValue ?? 0;
+  return {
+    code: promo.code,
+    benefitType,
+    benefitValue:
+      benefitType === 'percent_off'
+        ? String(Math.round(benefitValue * 100))
+        : String(benefitValue),
+  };
+}
+
+function parsePromoDraft(
+  draft: PromoDraft,
+):
+  | {code: string; benefitType: PromoBenefitType; benefitValue: number}
+  | {error: string} {
+  const code = draft.code.trim().toUpperCase();
+  if (!code) {
+    return {error: 'Promo code cannot be empty.'};
+  }
+  const raw = Number(draft.benefitValue);
+  if (!Number.isFinite(raw)) {
+    return {error: 'Enter a valid benefit value.'};
+  }
+  if (draft.benefitType === 'percent_off') {
+    if (raw < 1 || raw > 50) {
+      return {error: 'Discount must be between 1% and 50%.'};
+    }
+    return {code, benefitType: draft.benefitType, benefitValue: raw / 100};
+  }
+  if (draft.benefitType === 'fixed_off') {
+    if (raw <= 0) {
+      return {error: 'Fixed discount must be greater than zero.'};
+    }
+    return {code, benefitType: draft.benefitType, benefitValue: raw};
+  }
+  if (!Number.isInteger(raw) || raw < 1) {
+    return {error: 'Bonus credits must be at least 1.'};
+  }
+  return {code, benefitType: draft.benefitType, benefitValue: raw};
+}
+
+function isPromoDraftValid(draft: PromoDraft): boolean {
+  return !('error' in parsePromoDraft(draft));
+}
+
+function promoBenefitInputProps(benefitType: PromoBenefitType) {
+  switch (benefitType) {
+    case 'percent_off':
+      return {min: 1, max: 50, placeholder: '10'};
+    case 'fixed_off':
+      return {min: 1, placeholder: '50'};
+    case 'bonus_credits':
+      return {min: 1, placeholder: '5'};
+  }
+}
 
 const tableInputClass =
   'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
@@ -119,6 +189,11 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     isLoading: true,
     error: null,
   });
+  const [promos, setPromos] = useState<{items: PromoCode[]; isLoading: boolean; error: string | null}>({
+    items: [],
+    isLoading: true,
+    error: null,
+  });
   const [creditPackageDrafts, setCreditPackageDrafts] = useState<Record<string, CreditPackageDraft>>({});
   const [creditPackageForm, setCreditPackageForm] = useState<CreditPackageDraft>(emptyCreditPackageForm);
   const [creditPackageError, setCreditPackageError] = useState<string | null>(null);
@@ -130,6 +205,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [promoForm, setPromoForm] = useState<PromoDraft>(emptyPromoForm);
   const [promoError, setPromoError] = useState<string | null>(null);
   const [savingPromo, setSavingPromo] = useState<string | null>(null);
+  const [creatingPromo, setCreatingPromo] = useState(false);
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
   const [adjustForm, setAdjustForm] = useState({
     professionalId: '',
@@ -163,24 +239,27 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
+  const loadPromos = async () => {
+    setPromos(s => ({...s, isLoading: true, error: null}));
+    try {
+      const items = await listPromoCodes();
+      setPromos({items, isLoading: false, error: null});
+      setPromoDrafts(Object.fromEntries(items.map(promo => [promo.id, promoDraftFromPromo(promo)])));
+    } catch (err) {
+      setPromos(s => ({...s, isLoading: false, error: isApiError(err) ? err.message : 'Could not load promo codes.'}));
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [credits, pros] = await Promise.all([getCreditsOverview(), listProfessionals()]);
-      setOverview(credits);
+      const [meta, pros] = await Promise.all([
+        request<Omit<CreditsOverview, 'packs' | 'promos'>>('/admin/credits-meta'),
+        listProfessionals(),
+      ]);
+      setOverview({...meta, packs: [], promos: []});
       setProfessionals(pros);
-      setPromoDrafts(
-        Object.fromEntries(
-          credits.promos.map(promo => [
-            promo.id,
-            {
-              code: promo.code,
-              discountRate: String(Math.round(promo.discountRate * 100)),
-            },
-          ]),
-        ),
-      );
       if (!adjustForm.professionalId && pros[0]) {
         setAdjustForm(form => ({...form, professionalId: pros[0]!.id}));
       }
@@ -193,6 +272,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
 
   useEffect(() => {
     void loadPackages();
+    void loadPromos();
     void load();
   }, []);
 
@@ -329,7 +409,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     try {
       await updatePromoCode(id, {active});
       setEditingPromoId(current => (current === id ? null : current));
-      await load();
+      await loadPromos();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update promo code.');
     }
@@ -337,25 +417,20 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
 
   const savePromo = async (promoId: string) => {
     const draft = promoDrafts[promoId];
-    const code = draft?.code.trim().toUpperCase() ?? '';
-    const discountRate = Number(draft?.discountRate);
-    if (!code) {
-      setError('Promo code cannot be empty.');
+    if (!draft) {
       return;
     }
-    if (!Number.isFinite(discountRate) || discountRate < 1 || discountRate > 50) {
-      setError('Discount must be between 1% and 50%.');
+    const parsed = parsePromoDraft(draft);
+    if ('error' in parsed) {
+      setError(parsed.error);
       return;
     }
     setSavingPromo(promoId);
     setError(null);
     try {
-      await updatePromoCode(promoId, {
-        code,
-        discountRate: discountRate / 100,
-      });
+      await updatePromoCode(promoId, parsed);
       setEditingPromoId(current => (current === promoId ? null : current));
-      await load();
+      await loadPromos();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update promo code.');
     } finally {
@@ -363,59 +438,48 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  const startEditPromo = (promo: CreditsOverview['promos'][number]) => {
+  const startEditPromo = (promo: PromoCode) => {
     if (editingPromoId && editingPromoId !== promo.id) {
-      const previous = overview?.promos.find(item => item.id === editingPromoId);
+      const previous = promos.items.find(item => item.id === editingPromoId);
       if (previous) {
         setPromoDrafts(state => ({
           ...state,
-          [previous.id]: {
-            code: previous.code,
-            discountRate: String(Math.round(previous.discountRate * 100)),
-          },
+          [previous.id]: promoDraftFromPromo(previous),
         }));
       }
     }
     setEditingPromoId(promo.id);
     setPromoDrafts(state => ({
       ...state,
-      [promo.id]: {
-        code: promo.code,
-        discountRate: String(Math.round(promo.discountRate * 100)),
-      },
+      [promo.id]: promoDraftFromPromo(promo),
     }));
     setError(null);
   };
 
-  const cancelEditPromo = (promo: CreditsOverview['promos'][number]) => {
+  const cancelEditPromo = (promo: PromoCode) => {
     setPromoDrafts(state => ({
       ...state,
-      [promo.id]: {
-        code: promo.code,
-        discountRate: String(Math.round(promo.discountRate * 100)),
-      },
+      [promo.id]: promoDraftFromPromo(promo),
     }));
     setEditingPromoId(current => (current === promo.id ? null : current));
   };
 
   const submitCreatePromo = async () => {
     setPromoError(null);
-    const code = promoForm.code.trim().toUpperCase();
-    const discountRate = Number(promoForm.discountRate);
-    if (!code) {
-      setPromoError('Code is required.');
+    const parsed = parsePromoDraft(promoForm);
+    if ('error' in parsed) {
+      setPromoError(parsed.error);
       return;
     }
-    if (!Number.isFinite(discountRate) || discountRate < 1 || discountRate > 50) {
-      setPromoError('Discount must be between 1% and 50%.');
-      return;
-    }
+    setCreatingPromo(true);
     try {
-      await createPromoCode({code, discountRate: discountRate / 100});
+      await createPromoCode(parsed);
       setPromoForm(emptyPromoForm);
-      await load();
+      await loadPromos();
     } catch (err) {
       setPromoError(isApiError(err) ? err.message : 'Could not create promo code.');
+    } finally {
+      setCreatingPromo(false);
     }
   };
 
@@ -453,8 +517,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  if (error && !overview && !loading) {
-    return <ErrorState body={error} onRetry={() => void load()} />;
+  if (loading && !overview && packages.items.length === 0 && promos.items.length === 0) {
+    return <LoadingState label="Loading credits…" />;
   }
 
   return (
@@ -475,8 +539,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         </p>
       ) : null}
 
-      {loading ? (
-        <LoadingState label="Loading credits…" />
+      {loading && !overview ? (
+        <LoadingState label="Loading stats and transactions…" />
       ) : overview ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-3">
           <Card>
@@ -782,25 +846,50 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         {creditPackageError ? <p className="mt-2 text-sm text-destructive">{creditPackageError}</p> : null}
       </div>
 
-      {overview ? (<>
       <h2 className="mb-3 text-lg font-semibold text-foreground">Promo codes</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Discount codes applied at pro checkout. Add, edit, or deactivate promos — discount is a
-        percentage off the credit package subtotal.
+        Codes applied at pro checkout — percentage off, fixed AED discount, or bonus credits on
+        purchase.
       </p>
       <div className="mb-8">
         <DataTable
           tableClassName="table-fixed"
-          columnWidths={canWrite ? ['28%', '18%', '18%', '36%'] : ['40%', '30%', '30%']}
+          columnWidths={
+            canWrite ? ['16%', '22%', '16%', '12%', '34%'] : ['30%', '35%', '35%']
+          }
+          columnHeaderClassNames={
+            canWrite
+              ? [undefined, undefined, undefined, undefined, 'text-right']
+              : undefined
+          }
           columns={
-            canWrite ? ['Code', 'Discount %', 'Status', 'Actions'] : ['Code', 'Discount %', 'Status']
+            canWrite
+              ? ['Code', 'Type', 'Benefit', 'Status', 'Actions']
+              : ['Code', 'Type', 'Benefit', 'Status']
           }>
-          {overview.promos.map(promo => {
-            const draft = promoDrafts[promo.id] ?? {
-              code: promo.code,
-              discountRate: String(Math.round(promo.discountRate * 100)),
-            };
+          {promos.isLoading && promos.items.length === 0 ? (
+            <tr>
+              <td colSpan={canWrite ? 5 : 4} className="px-4 py-8 text-center">
+                <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" />
+              </td>
+            </tr>
+          ) : null}
+          {promos.error ? (
+            <tr>
+              <td colSpan={canWrite ? 5 : 4} className="px-4 py-6 text-center">
+                <p className="mb-2 text-sm text-destructive">{promos.error}</p>
+                <button
+                  className="text-xs text-primary underline"
+                  onClick={() => void loadPromos()}>
+                  Retry
+                </button>
+              </td>
+            </tr>
+          ) : null}
+          {promos.items.map(promo => {
+            const draft = promoDrafts[promo.id] ?? promoDraftFromPromo(promo);
             const isEditing = canWrite && editingPromoId === promo.id;
+            const benefitInput = promoBenefitInputProps(draft.benefitType);
 
             return (
               <tr
@@ -831,21 +920,57 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                 <td className="px-4 py-2">
                   <CreditPackageTableCell>
                     {isEditing ? (
-                      <input
-                        className={cn(tableInputClass, 'max-w-[6rem]')}
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={draft.discountRate}
+                      <select
+                        className={tableSelectClass}
+                        value={draft.benefitType}
                         onChange={e =>
                           setPromoDrafts(state => ({
                             ...state,
-                            [promo.id]: {...draft, discountRate: e.target.value},
+                            [promo.id]: {
+                              ...draft,
+                              benefitType: e.target.value as PromoBenefitType,
+                              benefitValue:
+                                e.target.value === 'percent_off'
+                                  ? '10'
+                                  : e.target.value === 'fixed_off'
+                                    ? '50'
+                                    : '5',
+                            },
+                          }))
+                        }>
+                        {PROMO_BENEFIT_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-foreground">
+                        {PROMO_BENEFIT_OPTIONS.find(item => item.value === promo.benefitType)?.label ??
+                          promo.benefitType}
+                      </span>
+                    )}
+                  </CreditPackageTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <CreditPackageTableCell>
+                    {isEditing ? (
+                      <input
+                        className={cn(tableInputClass, 'max-w-[7rem]')}
+                        type="number"
+                        min={benefitInput.min}
+                        max={'max' in benefitInput ? benefitInput.max : undefined}
+                        value={draft.benefitValue}
+                        onChange={e =>
+                          setPromoDrafts(state => ({
+                            ...state,
+                            [promo.id]: {...draft, benefitValue: e.target.value},
                           }))
                         }
+                        placeholder={benefitInput.placeholder}
                       />
                     ) : (
-                      <span className="text-foreground">{formatDiscount(promo.discountRate)}</span>
+                      <span className="text-foreground">{formatPromoBenefit(promo)}</span>
                     )}
                   </CreditPackageTableCell>
                 </td>
@@ -890,16 +1015,45 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
               </td>
               <td className="px-4 py-2">
                 <CreditPackageTableCell>
-                  <input
-                    className={cn(tableInputClass, 'max-w-[6rem]')}
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={promoForm.discountRate}
+                  <select
+                    className={tableSelectClass}
+                    value={promoForm.benefitType}
                     onChange={e =>
-                      setPromoForm(form => ({...form, discountRate: e.target.value}))
+                      setPromoForm(form => ({
+                        ...form,
+                        benefitType: e.target.value as PromoBenefitType,
+                        benefitValue:
+                          e.target.value === 'percent_off'
+                            ? '10'
+                            : e.target.value === 'fixed_off'
+                              ? '50'
+                              : '5',
+                      }))
+                    }>
+                    {PROMO_BENEFIT_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </CreditPackageTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <CreditPackageTableCell>
+                  <input
+                    className={cn(tableInputClass, 'max-w-[7rem]')}
+                    type="number"
+                    min={promoBenefitInputProps(promoForm.benefitType).min}
+                    max={
+                      'max' in promoBenefitInputProps(promoForm.benefitType)
+                        ? promoBenefitInputProps(promoForm.benefitType).max
+                        : undefined
                     }
-                    placeholder="10"
+                    value={promoForm.benefitValue}
+                    onChange={e =>
+                      setPromoForm(form => ({...form, benefitValue: e.target.value}))
+                    }
+                    placeholder={promoBenefitInputProps(promoForm.benefitType).placeholder}
                   />
                 </CreditPackageTableCell>
               </td>
@@ -918,8 +1072,16 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     aria-hidden>
                     Cancel
                   </Button>
-                  <Button size="sm" className={creditPackageActionButtonClass} onClick={() => void submitCreatePromo()}>
-                    Add
+                  <Button
+                    size="sm"
+                    className={creditPackageActionButtonClass}
+                    disabled={creatingPromo || !isPromoDraftValid(promoForm)}
+                    onClick={() => void submitCreatePromo()}>
+                    {creatingPromo ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                    ) : (
+                      'Add'
+                    )}
                   </Button>
                   <Button
                     size="sm"
@@ -937,6 +1099,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         {promoError ? <p className="mt-2 text-sm text-destructive">{promoError}</p> : null}
       </div>
 
+      {overview ? (<>
       <h2 className="mb-3 mt-8 text-lg font-semibold text-foreground">Transactions</h2>
       <FilterBar>
         {(
