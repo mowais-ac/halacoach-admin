@@ -26,6 +26,7 @@ import {Input} from '@/components/ui/Input';
 import {LoadingState} from '@/components/ui/LoadingState';
 import {PageHeader} from '@/components/ui/PageHeader';
 import {formatAed, formatDiscount} from '@/lib/credit-utils';
+import {cn} from '@/lib/cn';
 import {can} from '@/lib/permissions';
 
 type TxnFilter = 'all' | 'purchase' | 'spend' | 'adjustment';
@@ -39,6 +40,18 @@ type PackDraft = {
 
 const emptyPackForm: PackDraft = {name: '', credits: '', price: '', badge: ''};
 
+const tableInputClass =
+  'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
+const tableSelectClass =
+  'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
+const packTableCellClass = 'flex h-9 items-center';
+const packActionButtonClass = 'w-[4.75rem] shrink-0 justify-center';
+const packArchiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
+
+function PackTableCell({children, className}: {children: React.ReactNode; className?: string}) {
+  return <div className={cn(packTableCellClass, className)}>{children}</div>;
+}
+
 export function CreditsScreen({actor}: {actor: SessionUser}) {
   const canWrite = can(actor.role, 'credits:write');
   const canAdjust = can(actor.role, 'credits:adjust');
@@ -50,6 +63,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [packForm, setPackForm] = useState<PackDraft>(emptyPackForm);
   const [packError, setPackError] = useState<string | null>(null);
   const [savingPack, setSavingPack] = useState<string | null>(null);
+  const [editingPackId, setEditingPackId] = useState<string | null>(null);
   const [txnFilter, setTxnFilter] = useState<TxnFilter>('all');
   const [promoForm, setPromoForm] = useState({code: '', discountRate: '10'});
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -132,6 +146,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         price,
         badge: draft.badge || null,
       });
+      setEditingPackId(current => (current === packId ? null : current));
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update pack.');
@@ -140,8 +155,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  const onCreatePack = async (event: FormEvent) => {
-    event.preventDefault();
+  const submitCreatePack = async () => {
     setPackError(null);
     const credits = Number(packForm.credits);
     const price = Number(packForm.price);
@@ -171,9 +185,51 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
+  const startEditPack = (pack: CreditsOverview['packs'][number]) => {
+    if (editingPackId && editingPackId !== pack.id) {
+      const previous = overview?.packs.find(item => item.id === editingPackId);
+      if (previous) {
+        setPackDrafts(state => ({
+          ...state,
+          [previous.id]: {
+            name: previous.name,
+            credits: String(previous.credits),
+            price: String(previous.price),
+            badge: previous.badge ?? '',
+          },
+        }));
+      }
+    }
+    setEditingPackId(pack.id);
+    setPackDrafts(state => ({
+      ...state,
+      [pack.id]: {
+        name: pack.name,
+        credits: String(pack.credits),
+        price: String(pack.price),
+        badge: pack.badge ?? '',
+      },
+    }));
+    setError(null);
+  };
+
+  const cancelEditPack = (pack: CreditsOverview['packs'][number]) => {
+    setPackDrafts(state => ({
+      ...state,
+      [pack.id]: {
+        name: pack.name,
+        credits: String(pack.credits),
+        price: String(pack.price),
+        badge: pack.badge ?? '',
+      },
+    }));
+    setEditingPackId(current => (current === pack.id ? null : current));
+  };
+
   const togglePack = async (packId: string, active: boolean) => {
     try {
       await updateCreditPack(packId, {active});
+      setEditingPackId(current => (current === packId ? null : current));
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update pack.');
@@ -289,142 +345,286 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         Catalog shown in the pro checkout. Add, edit, or archive packs — prices exclude VAT;{' '}
         {Math.round(overview.vatRate * 100)}% is added at checkout.
       </p>
-      {canWrite ? (
-        <Card className="mb-4">
-          <form onSubmit={event => void onCreatePack(event)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Input
-              label="Name"
-              value={packForm.name}
-              onChange={e => setPackForm(form => ({...form, name: e.target.value}))}
-              placeholder="Starter"
-              required
-            />
-            <Input
-              label="Credits"
-              type="number"
-              min={1}
-              value={packForm.credits}
-              onChange={e => setPackForm(form => ({...form, credits: e.target.value}))}
-              placeholder="10"
-              required
-            />
-            <Input
-              label="Price (AED excl. VAT)"
-              type="number"
-              min={1}
-              value={packForm.price}
-              onChange={e => setPackForm(form => ({...form, price: e.target.value}))}
-              placeholder="199"
-              required
-            />
-            <label className="block text-sm font-medium text-foreground">
-              Badge
-              <select
-                className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-normal"
-                value={packForm.badge}
-                onChange={e =>
-                  setPackForm(form => ({...form, badge: e.target.value as CreditPackBadge | ''}))
-                }>
-                <option value="">None</option>
-                <option value="popular">Popular</option>
-                <option value="value">Best value</option>
-              </select>
-            </label>
-            <div className="flex items-end">
-              <Button type="submit">Add pack</Button>
-            </div>
-          </form>
-          {packError ? <p className="mt-2 text-sm text-destructive">{packError}</p> : null}
-        </Card>
-      ) : null}
-      <div className="mb-8 grid gap-4 md:grid-cols-3">
-        {overview.packs.map(pack => {
-          const draft = packDrafts[pack.id] ?? {
-            name: pack.name,
-            credits: String(pack.credits),
-            price: String(pack.price),
-            badge: pack.badge ?? '',
-          };
-          return (
-            <Card key={pack.id} className={!pack.active ? 'opacity-60' : undefined}>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="font-semibold text-foreground">{pack.name}</p>
-                <div className="flex gap-2">
-                  {pack.badge ? (
-                    <Badge tone={pack.badge === 'popular' ? 'coral' : 'sky'}>{pack.badge}</Badge>
-                  ) : null}
-                  {!pack.active ? <Badge tone="muted">Archived</Badge> : null}
-                </div>
-              </div>
-              <p className="text-2xl font-bold text-primary">{pack.credits} credits</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {formatAed(pack.price)} excl. VAT · {formatAed(pack.price * (1 + overview.vatRate))}{' '}
-                incl.
-              </p>
-              {canWrite ? (
-                <div className="mt-4 space-y-2">
-                  <Input
-                    label="Name"
-                    value={draft.name}
-                    onChange={e =>
-                      setPackDrafts(s => ({...s, [pack.id]: {...draft, name: e.target.value}}))
-                    }
+      <div className="mb-8">
+        <DataTable
+          tableClassName="table-fixed"
+          columnWidths={
+            canWrite
+              ? ['20%', '9%', '13%', '13%', '11%', '10%', '24%']
+              : ['22%', '10%', '14%', '14%', '14%', '12%']
+          }
+          columns={
+            canWrite
+              ? ['Name', 'Credits', 'Price (excl. VAT)', 'Badge', 'Incl. VAT', 'Status', 'Actions']
+              : ['Name', 'Credits', 'Price (excl. VAT)', 'Badge', 'Incl. VAT', 'Status']
+          }>
+          {overview.packs.map(pack => {
+            const draft = packDrafts[pack.id] ?? {
+              name: pack.name,
+              credits: String(pack.credits),
+              price: String(pack.price),
+              badge: pack.badge ?? '',
+            };
+            const isEditing = canWrite && editingPackId === pack.id;
+            const displayPrice = isEditing ? Number(draft.price) : pack.price;
+            const inclVat = Number.isFinite(displayPrice)
+              ? formatAed(displayPrice * (1 + overview.vatRate))
+              : '—';
+
+            return (
+              <tr
+                key={pack.id}
+                className={cn(
+                  'border-b border-border last:border-0',
+                  !pack.active && 'bg-muted/30',
+                  isEditing && 'bg-primary-soft/30',
+                )}>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <input
+                        className={tableInputClass}
+                        value={draft.name}
+                        onChange={e =>
+                          setPackDrafts(state => ({
+                            ...state,
+                            [pack.id]: {...draft, name: e.target.value},
+                          }))
+                        }
+                      />
+                    ) : (
+                      <span className="truncate font-medium text-foreground">{pack.name}</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <input
+                        className={tableInputClass}
+                        type="number"
+                        min={1}
+                        value={draft.credits}
+                        onChange={e =>
+                          setPackDrafts(state => ({
+                            ...state,
+                            [pack.id]: {...draft, credits: e.target.value},
+                          }))
+                        }
+                      />
+                    ) : (
+                      <span className="text-foreground">{pack.credits}</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <input
+                        className={tableInputClass}
+                        type="number"
+                        min={1}
+                        value={draft.price}
+                        onChange={e =>
+                          setPackDrafts(state => ({
+                            ...state,
+                            [pack.id]: {...draft, price: e.target.value},
+                          }))
+                        }
+                      />
+                    ) : (
+                      <span className="text-foreground">{formatAed(pack.price)}</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {isEditing ? (
+                      <select
+                        className={tableSelectClass}
+                        value={draft.badge}
+                        onChange={e =>
+                          setPackDrafts(state => ({
+                            ...state,
+                            [pack.id]: {
+                              ...draft,
+                              badge: e.target.value as CreditPackBadge | '',
+                            },
+                          }))
+                        }>
+                        <option value="">None</option>
+                        <option value="popular">Popular</option>
+                        <option value="value">Best value</option>
+                      </select>
+                    ) : pack.badge ? (
+                      <Badge tone={pack.badge === 'popular' ? 'coral' : 'sky'}>{pack.badge}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    <span className="text-muted-foreground">{inclVat}</span>
+                  </PackTableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <PackTableCell>
+                    {pack.active ? (
+                      <Badge tone="primary">Active</Badge>
+                    ) : (
+                      <Badge tone="muted">Archived</Badge>
+                    )}
+                  </PackTableCell>
+                </td>
+                {canWrite ? (
+                  <td className="px-4 py-2">
+                    <PackTableCell className="justify-end gap-1">
+                      {isEditing ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={packActionButtonClass}
+                          onClick={() => cancelEditPack(pack)}>
+                          Cancel
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+                          tabIndex={-1}
+                          aria-hidden>
+                          Cancel
+                        </Button>
+                      )}
+                      {isEditing ? (
+                        <Button
+                          size="sm"
+                          className={packActionButtonClass}
+                          disabled={savingPack === pack.id}
+                          onClick={() => void savePack(pack.id)}>
+                          {savingPack === pack.id ? 'Saving…' : 'Save'}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={packActionButtonClass}
+                          onClick={() => startEditPack(pack)}>
+                          Edit
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={packArchiveButtonClass}
+                        onClick={() => void togglePack(pack.id, !pack.active)}>
+                        {pack.active ? 'Archive' : 'Restore'}
+                      </Button>
+                    </PackTableCell>
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
+          {canWrite ? (
+            <tr className="border-t-2 border-border bg-primary-soft/40">
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <input
+                    className={tableInputClass}
+                    value={packForm.name}
+                    onChange={e => setPackForm(form => ({...form, name: e.target.value}))}
+                    placeholder="Starter"
                   />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      label="Credits"
-                      type="number"
-                      min={1}
-                      value={draft.credits}
-                      onChange={e =>
-                        setPackDrafts(s => ({...s, [pack.id]: {...draft, credits: e.target.value}}))
-                      }
-                    />
-                    <Input
-                      label="Price (AED)"
-                      type="number"
-                      min={1}
-                      value={draft.price}
-                      onChange={e =>
-                        setPackDrafts(s => ({...s, [pack.id]: {...draft, price: e.target.value}}))
-                      }
-                    />
-                  </div>
-                  <label className="block text-xs font-medium text-muted-foreground">
-                    Badge
-                    <select
-                      className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-                      value={draft.badge}
-                      onChange={e =>
-                        setPackDrafts(s => ({
-                          ...s,
-                          [pack.id]: {...draft, badge: e.target.value as CreditPackBadge | ''},
-                        }))
-                      }>
-                      <option value="">None</option>
-                      <option value="popular">Popular</option>
-                      <option value="value">Best value</option>
-                    </select>
-                  </label>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      disabled={savingPack === pack.id}
-                      onClick={() => void savePack(pack.id)}>
-                      Save pack
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void togglePack(pack.id, !pack.active)}>
-                      {pack.active ? 'Archive' : 'Restore'}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </Card>
-          );
-        })}
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <input
+                    className={tableInputClass}
+                    type="number"
+                    min={1}
+                    value={packForm.credits}
+                    onChange={e => setPackForm(form => ({...form, credits: e.target.value}))}
+                    placeholder="10"
+                  />
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <input
+                    className={tableInputClass}
+                    type="number"
+                    min={1}
+                    value={packForm.price}
+                    onChange={e => setPackForm(form => ({...form, price: e.target.value}))}
+                    placeholder="199"
+                  />
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <select
+                    className={tableSelectClass}
+                    value={packForm.badge}
+                    onChange={e =>
+                      setPackForm(form => ({
+                        ...form,
+                        badge: e.target.value as CreditPackBadge | '',
+                      }))
+                    }>
+                    <option value="">None</option>
+                    <option value="popular">Popular</option>
+                    <option value="value">Best value</option>
+                  </select>
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <span className="text-muted-foreground">
+                    {Number.isFinite(Number(packForm.price)) && packForm.price
+                      ? formatAed(Number(packForm.price) * (1 + overview.vatRate))
+                      : '—'}
+                  </span>
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell>
+                  <Badge tone="sky">New</Badge>
+                </PackTableCell>
+              </td>
+              <td className="px-4 py-2">
+                <PackTableCell className="justify-end gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+                    tabIndex={-1}
+                    aria-hidden>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className={packActionButtonClass}
+                    onClick={() => void submitCreatePack()}>
+                    Add
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={cn(packArchiveButtonClass, 'invisible pointer-events-none')}
+                    tabIndex={-1}
+                    aria-hidden>
+                    Archive
+                  </Button>
+                </PackTableCell>
+              </td>
+            </tr>
+          ) : null}
+        </DataTable>
+        {packError ? <p className="mt-2 text-sm text-destructive">{packError}</p> : null}
       </div>
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Promo codes</h2>
