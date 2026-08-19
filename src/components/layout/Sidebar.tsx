@@ -12,7 +12,7 @@ export function Sidebar({role}: {role: AdminRole}) {
   const items = navItems.filter(item => can(role, item.permission));
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-e border-border bg-card">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-e border-border bg-card">
       <div className="border-b border-border px-5 py-5">
         <p className="text-lg font-bold tracking-tight text-primary">HalaCoach</p>
         <p className="text-xs font-medium text-muted-foreground">Admin console</p>
