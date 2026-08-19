@@ -12,8 +12,8 @@ import {
   type ProfessionalSummary,
   type SessionUser,
 } from '@/api';
-import {createCreditPackage, updateCreditPackage} from '@/lib/apis';
-import type {CreditPackageBadge} from '@/api/types';
+import {createCreditPackage, listCreditPackages, updateCreditPackage} from '@/lib/apis';
+import type {CreditPackage, CreditPackageBadge} from '@/api/types';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
@@ -30,7 +30,7 @@ import {can} from '@/lib/permissions';
 
 type TxnFilter = 'all' | 'purchase' | 'spend' | 'adjustment';
 
-type PackDraft = {
+type CreditPackageDraft = {
   name: string;
   credits: string;
   price: string;
@@ -42,19 +42,19 @@ type PromoDraft = {
   discountRate: string;
 };
 
-const emptyPackForm: PackDraft = {name: '', credits: '', price: '', badge: ''};
+const emptyCreditPackageForm: CreditPackageDraft = {name: '', credits: '', price: '', badge: ''};
 const emptyPromoForm: PromoDraft = {code: '', discountRate: '10'};
 
 const tableInputClass =
   'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
 const tableSelectClass =
   'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
-const packTableCellClass = 'flex h-9 items-center';
-const packActionButtonClass = 'w-[4.75rem] shrink-0 justify-center';
-const packArchiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
+const creditPackageTableCellClass = 'flex h-9 items-center';
+const creditPackageActionButtonClass = 'w-[4.75rem] shrink-0 justify-center';
+const creditPackageArchiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
 
-function PackTableCell({children, className}: {children: React.ReactNode; className?: string}) {
-  return <div className={cn(packTableCellClass, className)}>{children}</div>;
+function CreditPackageTableCell({children, className}: {children: React.ReactNode; className?: string}) {
+  return <div className={cn(creditPackageTableCellClass, className)}>{children}</div>;
 }
 
 function CatalogActions({
@@ -75,34 +75,34 @@ function CatalogActions({
   onToggle: () => void;
 }) {
   return (
-    <PackTableCell className="justify-end gap-1">
+    <CreditPackageTableCell className="justify-end gap-1">
       {isEditing ? (
-        <Button size="sm" variant="outline" className={packActionButtonClass} onClick={onCancel}>
+        <Button size="sm" variant="outline" className={creditPackageActionButtonClass} onClick={onCancel}>
           Cancel
         </Button>
       ) : (
         <Button
           size="sm"
           variant="outline"
-          className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+          className={cn(creditPackageActionButtonClass, 'invisible pointer-events-none')}
           tabIndex={-1}
           aria-hidden>
           Cancel
         </Button>
       )}
       {isEditing ? (
-        <Button size="sm" className={packActionButtonClass} disabled={saving} onClick={onSave}>
+        <Button size="sm" className={creditPackageActionButtonClass} disabled={saving} onClick={onSave}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
       ) : (
-        <Button size="sm" variant="outline" className={packActionButtonClass} onClick={onEdit}>
+        <Button size="sm" variant="outline" className={creditPackageActionButtonClass} onClick={onEdit}>
           Edit
         </Button>
       )}
-      <Button size="sm" variant="outline" className={packArchiveButtonClass} onClick={onToggle}>
+      <Button size="sm" variant="outline" className={creditPackageArchiveButtonClass} onClick={onToggle}>
         {toggleLabel}
       </Button>
-    </PackTableCell>
+    </CreditPackageTableCell>
   );
 }
 
@@ -113,11 +113,18 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [professionals, setProfessionals] = useState<ProfessionalSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [packDrafts, setPackDrafts] = useState<Record<string, PackDraft>>({});
-  const [packForm, setPackForm] = useState<PackDraft>(emptyPackForm);
-  const [packError, setPackError] = useState<string | null>(null);
-  const [savingPack, setSavingPack] = useState<string | null>(null);
-  const [editingPackId, setEditingPackId] = useState<string | null>(null);
+
+  const [packages, setPackages] = useState<{items: CreditPackage[]; isLoading: boolean; error: string | null}>({
+    items: [],
+    isLoading: true,
+    error: null,
+  });
+  const [creditPackageDrafts, setCreditPackageDrafts] = useState<Record<string, CreditPackageDraft>>({});
+  const [creditPackageForm, setCreditPackageForm] = useState<CreditPackageDraft>(emptyCreditPackageForm);
+  const [creditPackageError, setCreditPackageError] = useState<string | null>(null);
+  const [savingCreditPackage, setSavingCreditPackage] = useState<string | null>(null);
+  const [creatingCreditPackage, setCreatingCreditPackage] = useState(false);
+  const [editingCreditPackageId, setEditingCreditPackageId] = useState<string | null>(null);
   const [txnFilter, setTxnFilter] = useState<TxnFilter>('all');
   const [promoDrafts, setPromoDrafts] = useState<Record<string, PromoDraft>>({});
   const [promoForm, setPromoForm] = useState<PromoDraft>(emptyPromoForm);
@@ -133,6 +140,29 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   const [adjusting, setAdjusting] = useState(false);
   const [pendingAdjust, setPendingAdjust] = useState(false);
 
+  const loadPackages = async () => {
+    setPackages(s => ({...s, isLoading: true, error: null}));
+    try {
+      const items = await listCreditPackages();
+      setPackages({items, isLoading: false, error: null});
+      setCreditPackageDrafts(
+        Object.fromEntries(
+          items.map(pkg => [
+            pkg.id,
+            {
+              name: pkg.name,
+              credits: String(pkg.credits),
+              price: String(pkg.price),
+              badge: pkg.badge ?? '',
+            },
+          ]),
+        ),
+      );
+    } catch (err) {
+      setPackages(s => ({...s, isLoading: false, error: isApiError(err) ? err.message : 'Could not load packages.'}));
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -140,19 +170,6 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
       const [credits, pros] = await Promise.all([getCreditsOverview(), listProfessionals()]);
       setOverview(credits);
       setProfessionals(pros);
-      setPackDrafts(
-        Object.fromEntries(
-          credits.packs.map(pack => [
-            pack.id,
-            {
-              name: pack.name,
-              credits: String(pack.credits),
-              price: String(pack.price),
-              badge: pack.badge ?? '',
-            },
-          ]),
-        ),
-      );
       setPromoDrafts(
         Object.fromEntries(
           credits.promos.map(promo => [
@@ -175,6 +192,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
   };
 
   useEffect(() => {
+    void loadPackages();
     void load();
   }, []);
 
@@ -188,24 +206,24 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     return overview.transactions.filter(item => item.type === txnFilter);
   }, [overview, txnFilter]);
 
-  const savePack = async (packId: string) => {
-    const draft = packDrafts[packId];
+  const saveCreditPackage = async (packId: string) => {
+    const draft = creditPackageDrafts[packId];
     const credits = Number(draft?.credits);
     const price = Number(draft?.price);
     const name = draft?.name.trim() ?? '';
     if (!name) {
-      setError('Pack name cannot be empty.');
+      setError('Credit package name cannot be empty.');
       return;
     }
     if (!Number.isFinite(credits) || credits < 1) {
-      setError('Each pack needs at least 1 credit.');
+      setError('Each credit package needs at least 1 credit.');
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
-      setError('Enter a valid pack price in AED.');
+      setError('Enter a valid credit package price in AED.');
       return;
     }
-    setSavingPack(packId);
+    setSavingCreditPackage(packId);
     setError(null);
     try {
       await updateCreditPackage(packId, {
@@ -214,50 +232,53 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         price,
         badge: draft.badge || null,
       });
-      setEditingPackId(current => (current === packId ? null : current));
-      await load();
+      setEditingCreditPackageId(current => (current === packId ? null : current));
+      await loadPackages();
     } catch (err) {
-      setError(isApiError(err) ? err.message : 'Could not update pack.');
+      setError(isApiError(err) ? err.message : 'Could not update credit package.');
     } finally {
-      setSavingPack(null);
+      setSavingCreditPackage(null);
     }
   };
 
-  const submitCreatePack = async () => {
-    setPackError(null);
-    const credits = Number(packForm.credits);
-    const price = Number(packForm.price);
-    if (!packForm.name.trim()) {
-      setPackError('Name is required.');
+  const submitCreateCreditPackage = async () => {
+    setCreditPackageError(null);
+    const credits = Number(creditPackageForm.credits);
+    const price = Number(creditPackageForm.price);
+    if (!creditPackageForm.name.trim()) {
+      setCreditPackageError('Name is required.');
       return;
     }
     if (!Number.isFinite(credits) || credits < 1) {
-      setPackError('Credits must be at least 1.');
+      setCreditPackageError('Credits must be at least 1.');
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
-      setPackError('Price must be greater than zero.');
+      setCreditPackageError('Price must be greater than zero.');
       return;
     }
+    setCreatingCreditPackage(true);
     try {
       await createCreditPackage({
-        name: packForm.name.trim(),
+        name: creditPackageForm.name.trim(),
         credits,
         price,
-        badge: packForm.badge || null,
+        badge: creditPackageForm.badge || null,
       });
-      setPackForm(emptyPackForm);
-      await load();
+      setCreditPackageForm(emptyCreditPackageForm);
+      await loadPackages();
     } catch (err) {
-      setPackError(isApiError(err) ? err.message : 'Could not create pack.');
+      setCreditPackageError(isApiError(err) ? err.message : 'Could not create credit package.');
+    } finally {
+      setCreatingCreditPackage(false);
     }
   };
 
-  const startEditPack = (pack: CreditsOverview['packs'][number]) => {
-    if (editingPackId && editingPackId !== pack.id) {
-      const previous = overview?.packs.find(item => item.id === editingPackId);
+  const startEditCreditPackage = (pack: CreditPackage) => {
+    if (editingCreditPackageId && editingCreditPackageId !== pack.id) {
+      const previous = packages.items.find(item => item.id === editingCreditPackageId);
       if (previous) {
-        setPackDrafts(state => ({
+        setCreditPackageDrafts(state => ({
           ...state,
           [previous.id]: {
             name: previous.name,
@@ -268,8 +289,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         }));
       }
     }
-    setEditingPackId(pack.id);
-    setPackDrafts(state => ({
+    setEditingCreditPackageId(pack.id);
+    setCreditPackageDrafts(state => ({
       ...state,
       [pack.id]: {
         name: pack.name,
@@ -281,8 +302,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     setError(null);
   };
 
-  const cancelEditPack = (pack: CreditsOverview['packs'][number]) => {
-    setPackDrafts(state => ({
+  const cancelEditCreditPackage = (pack: CreditPackage) => {
+    setCreditPackageDrafts(state => ({
       ...state,
       [pack.id]: {
         name: pack.name,
@@ -291,16 +312,16 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         badge: pack.badge ?? '',
       },
     }));
-    setEditingPackId(current => (current === pack.id ? null : current));
+    setEditingCreditPackageId(current => (current === pack.id ? null : current));
   };
 
-  const togglePack = async (packId: string, active: boolean) => {
+  const toggleCreditPackage = async (packId: string, active: boolean) => {
     try {
       await updateCreditPackage(packId, {active});
-      setEditingPackId(current => (current === packId ? null : current));
-      await load();
+      setEditingCreditPackageId(current => (current === packId ? null : current));
+      await loadPackages();
     } catch (err) {
-      setError(isApiError(err) ? err.message : 'Could not update pack.');
+      setError(isApiError(err) ? err.message : 'Could not update credit package.');
     }
   };
 
@@ -432,16 +453,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  if (loading) {
-    return <LoadingState label="Loading credits…" />;
-  }
-
-  if (error && !overview) {
+  if (error && !overview && !loading) {
     return <ErrorState body={error} onRetry={() => void load()} />;
-  }
-
-  if (!overview) {
-    return null;
   }
 
   return (
@@ -449,7 +462,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
       <PageHeader
         module="M9"
         title="Credits"
-        description={`Packs, promo codes, VAT at ${Math.round(overview.vatRate * 100)}%, transactions, and wallet adjustments.`}
+        description="Packs, promo codes, VAT, transactions, and wallet adjustments."
       />
 
       {error ? (
@@ -458,32 +471,35 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
 
       {!canWrite && !canAdjust ? (
         <p className="mb-4 rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-deep">
-          View only — pack prices and promos require super admin; adjustments require support or
-          super.
+          View only — credit package prices and promo codes require super admin; adjustments require support or super.
         </p>
       ) : null}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Card>
-          <p className="text-xs font-medium uppercase text-muted-foreground">In wallets</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">
-            {overview.stats.totalCreditsInWallets} credits
-          </p>
-        </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Purchases</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{overview.stats.purchaseCount}</p>
-        </Card>
-        <Card>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Lead unlocks</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{overview.stats.spendCount}</p>
-        </Card>
-      </div>
+      {loading ? (
+        <LoadingState label="Loading credits…" />
+      ) : overview ? (
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <Card>
+            <p className="text-xs font-medium uppercase text-muted-foreground">In wallets</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">
+              {overview.stats.totalCreditsInWallets} credits
+            </p>
+          </Card>
+          <Card>
+            <p className="text-xs font-medium uppercase text-muted-foreground">Purchases</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{overview.stats.purchaseCount}</p>
+          </Card>
+          <Card>
+            <p className="text-xs font-medium uppercase text-muted-foreground">Lead unlocks</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{overview.stats.spendCount}</p>
+          </Card>
+        </div>
+      ) : null}
 
       <h2 className="mb-3 text-lg font-semibold text-foreground">Credit packages</h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Catalog shown in the pro checkout. Add, edit, or archive packs — prices exclude VAT;{' '}
-        {Math.round(overview.vatRate * 100)}% is added at checkout.
+        Catalog shown in the pro checkout. Add, edit, or archive credit packages — prices exclude VAT
+        {overview ? `; ${Math.round(overview.vatRate * 100)}% is added at checkout` : ''}.
       </p>
       <div className="mb-8">
         <DataTable
@@ -498,16 +514,35 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
               ? ['Name', 'Credits', 'Price (excl. VAT)', 'Badge', 'Incl. VAT', 'Status', 'Actions']
               : ['Name', 'Credits', 'Price (excl. VAT)', 'Badge', 'Incl. VAT', 'Status']
           }>
-          {overview.packs.map(pack => {
-            const draft = packDrafts[pack.id] ?? {
+          {packages.isLoading && packages.items.length === 0 ? (
+            <tr>
+              <td colSpan={canWrite ? 7 : 6} className="px-4 py-8 text-center">
+                <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" />
+              </td>
+            </tr>
+          ) : null}
+          {packages.error ? (
+            <tr>
+              <td colSpan={canWrite ? 7 : 6} className="px-4 py-6 text-center">
+                <p className="mb-2 text-sm text-destructive">{packages.error}</p>
+                <button
+                  className="text-xs text-primary underline"
+                  onClick={() => void loadPackages()}>
+                  Retry
+                </button>
+              </td>
+            </tr>
+          ) : null}
+          {packages.items.map(pack => {
+            const draft = creditPackageDrafts[pack.id] ?? {
               name: pack.name,
               credits: String(pack.credits),
               price: String(pack.price),
               badge: pack.badge ?? '',
             };
-            const isEditing = canWrite && editingPackId === pack.id;
+            const isEditing = canWrite && editingCreditPackageId === pack.id;
             const displayPrice = isEditing ? Number(draft.price) : pack.price;
-            const inclVat = Number.isFinite(displayPrice)
+            const inclVat = Number.isFinite(displayPrice) && overview
               ? formatAed(displayPrice * (1 + overview.vatRate))
               : '—';
 
@@ -520,13 +555,13 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                   isEditing && 'bg-primary-soft/30',
                 )}>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <input
                         className={tableInputClass}
                         value={draft.name}
                         onChange={e =>
-                          setPackDrafts(state => ({
+                          setCreditPackageDrafts(state => ({
                             ...state,
                             [pack.id]: {...draft, name: e.target.value},
                           }))
@@ -535,10 +570,10 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="truncate font-medium text-foreground">{pack.name}</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <input
                         className={tableInputClass}
@@ -546,7 +581,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                         min={1}
                         value={draft.credits}
                         onChange={e =>
-                          setPackDrafts(state => ({
+                          setCreditPackageDrafts(state => ({
                             ...state,
                             [pack.id]: {...draft, credits: e.target.value},
                           }))
@@ -555,10 +590,10 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="text-foreground">{pack.credits}</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <input
                         className={tableInputClass}
@@ -566,7 +601,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                         min={1}
                         value={draft.price}
                         onChange={e =>
-                          setPackDrafts(state => ({
+                          setCreditPackageDrafts(state => ({
                             ...state,
                             [pack.id]: {...draft, price: e.target.value},
                           }))
@@ -575,16 +610,16 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="text-foreground">{formatAed(pack.price)}</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <select
                         className={tableSelectClass}
                         value={draft.badge}
                         onChange={e =>
-                          setPackDrafts(state => ({
+                          setCreditPackageDrafts(state => ({
                             ...state,
                             [pack.id]: {
                               ...draft,
@@ -601,81 +636,88 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     <span className="text-muted-foreground">{inclVat}</span>
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {pack.active ? (
                       <Badge tone="primary">Active</Badge>
                     ) : (
                       <Badge tone="muted">Archived</Badge>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 {canWrite ? (
                   <td className="px-4 py-2">
                     <CatalogActions
                       isEditing={isEditing}
-                      saving={savingPack === pack.id}
-                      onCancel={() => cancelEditPack(pack)}
-                      onSave={() => void savePack(pack.id)}
-                      onEdit={() => startEditPack(pack)}
+                      saving={savingCreditPackage === pack.id}
+                      onCancel={() => cancelEditCreditPackage(pack)}
+                      onSave={() => void saveCreditPackage(pack.id)}
+                      onEdit={() => startEditCreditPackage(pack)}
                       toggleLabel={pack.active ? 'Archive' : 'Restore'}
-                      onToggle={() => void togglePack(pack.id, !pack.active)}
+                      onToggle={() => void toggleCreditPackage(pack.id, !pack.active)}
                     />
                   </td>
                 ) : null}
               </tr>
             );
           })}
+          {packages.isLoading && packages.items.length > 0 ? (
+            <tr>
+              <td colSpan={canWrite ? 7 : 6} className="py-3 text-center">
+                <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
+              </td>
+            </tr>
+          ) : null}
           {canWrite ? (
             <tr className="border-t-2 border-border bg-primary-soft/40">
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <input
                     className={tableInputClass}
-                    value={packForm.name}
-                    onChange={e => setPackForm(form => ({...form, name: e.target.value}))}
+                    value={creditPackageForm.name}
+                    onChange={e => setCreditPackageForm(form => ({...form, name: e.target.value}))}
                     placeholder="Starter"
                   />
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <input
                     className={tableInputClass}
                     type="number"
                     min={1}
-                    value={packForm.credits}
-                    onChange={e => setPackForm(form => ({...form, credits: e.target.value}))}
+                    value={creditPackageForm.credits}
+                    onChange={e => setCreditPackageForm(form => ({...form, credits: e.target.value}))}
                     placeholder="10"
                   />
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <input
                     className={tableInputClass}
                     type="number"
                     min={1}
-                    value={packForm.price}
-                    onChange={e => setPackForm(form => ({...form, price: e.target.value}))}
+                    value={creditPackageForm.price}
+                    onChange={e => setCreditPackageForm(form => ({...form, price: e.target.value}))}
                     placeholder="199"
                   />
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <select
                     className={tableSelectClass}
-                    value={packForm.badge}
+                    value={creditPackageForm.badge}
                     onChange={e =>
-                      setPackForm(form => ({
+                      setCreditPackageForm(form => ({
                         ...form,
                         badge: e.target.value as CreditPackageBadge | '',
                       }))
@@ -684,58 +726,62 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     <option value="popular">Popular</option>
                     <option value="value">Best value</option>
                   </select>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <span className="text-muted-foreground">
-                    {Number.isFinite(Number(packForm.price)) && packForm.price
-                      ? formatAed(Number(packForm.price) * (1 + overview.vatRate))
+                    {Number.isFinite(Number(creditPackageForm.price)) && creditPackageForm.price && overview
+                      ? formatAed(Number(creditPackageForm.price) * (1 + overview.vatRate))
                       : '—'}
                   </span>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <Badge tone="sky">New</Badge>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell className="justify-end gap-1">
+                <CreditPackageTableCell className="justify-end gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+                    className={cn(creditPackageActionButtonClass, 'invisible pointer-events-none')}
                     tabIndex={-1}
                     aria-hidden>
                     Cancel
                   </Button>
                   <Button
                     size="sm"
-                    className={packActionButtonClass}
-                    onClick={() => void submitCreatePack()}>
-                    Add
+                    className={creditPackageActionButtonClass}
+                    disabled={creatingCreditPackage}
+                    onClick={() => void submitCreateCreditPackage()}>
+                    {creatingCreditPackage ? (
+                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    ) : 'Add'}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className={cn(packArchiveButtonClass, 'invisible pointer-events-none')}
+                    className={cn(creditPackageArchiveButtonClass, 'invisible pointer-events-none')}
                     tabIndex={-1}
                     aria-hidden>
                     Archive
                   </Button>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
             </tr>
           ) : null}
         </DataTable>
-        {packError ? <p className="mt-2 text-sm text-destructive">{packError}</p> : null}
+        {creditPackageError ? <p className="mt-2 text-sm text-destructive">{creditPackageError}</p> : null}
       </div>
 
+      {overview ? (<>
       <h2 className="mb-3 text-lg font-semibold text-foreground">Promo codes</h2>
       <p className="mb-4 text-sm text-muted-foreground">
         Discount codes applied at pro checkout. Add, edit, or deactivate promos — discount is a
-        percentage off the pack subtotal.
+        percentage off the credit package subtotal.
       </p>
       <div className="mb-8">
         <DataTable
@@ -760,7 +806,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                   isEditing && 'bg-primary-soft/30',
                 )}>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <input
                         className={cn(tableInputClass, 'font-mono uppercase')}
@@ -775,10 +821,10 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="font-mono font-medium text-foreground">{promo.code}</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {isEditing ? (
                       <input
                         className={cn(tableInputClass, 'max-w-[6rem]')}
@@ -796,16 +842,16 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     ) : (
                       <span className="text-foreground">{formatDiscount(promo.discountRate)}</span>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 <td className="px-4 py-2">
-                  <PackTableCell>
+                  <CreditPackageTableCell>
                     {promo.active ? (
                       <Badge tone="primary">Active</Badge>
                     ) : (
                       <Badge tone="muted">Inactive</Badge>
                     )}
-                  </PackTableCell>
+                  </CreditPackageTableCell>
                 </td>
                 {canWrite ? (
                   <td className="px-4 py-2">
@@ -826,7 +872,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
           {canWrite ? (
             <tr className="border-t-2 border-border bg-primary-soft/40">
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <input
                     className={cn(tableInputClass, 'font-mono uppercase')}
                     value={promoForm.code}
@@ -835,10 +881,10 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     }
                     placeholder="HALA10"
                   />
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <input
                     className={cn(tableInputClass, 'max-w-[6rem]')}
                     type="number"
@@ -850,35 +896,35 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     }
                     placeholder="10"
                   />
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell>
+                <CreditPackageTableCell>
                   <Badge tone="sky">New</Badge>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <PackTableCell className="justify-end gap-1">
+                <CreditPackageTableCell className="justify-end gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    className={cn(packActionButtonClass, 'invisible pointer-events-none')}
+                    className={cn(creditPackageActionButtonClass, 'invisible pointer-events-none')}
                     tabIndex={-1}
                     aria-hidden>
                     Cancel
                   </Button>
-                  <Button size="sm" className={packActionButtonClass} onClick={() => void submitCreatePromo()}>
+                  <Button size="sm" className={creditPackageActionButtonClass} onClick={() => void submitCreatePromo()}>
                     Add
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className={cn(packArchiveButtonClass, 'invisible pointer-events-none')}
+                    className={cn(creditPackageArchiveButtonClass, 'invisible pointer-events-none')}
                     tabIndex={-1}
                     aria-hidden>
                     Deactivate
                   </Button>
-                </PackTableCell>
+                </CreditPackageTableCell>
               </td>
             </tr>
           ) : null}
@@ -984,6 +1030,8 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
           </Card>
         </>
       ) : null}
+
+      </>) : null}
 
       <ConfirmDialog
         open={pendingAdjust}
