@@ -481,7 +481,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
         </Card>
       </div>
 
-      <h2 className="mb-3 text-lg font-semibold text-foreground">Credit packs</h2>
+      <h2 className="mb-3 text-lg font-semibold text-foreground">Credit packages</h2>
       <p className="mb-4 text-sm text-muted-foreground">
         Catalog shown in the pro checkout. Add, edit, or archive packs — prices exclude VAT;{' '}
         {Math.round(overview.vatRate * 100)}% is added at checkout.
