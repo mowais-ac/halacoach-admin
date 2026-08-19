@@ -45,30 +45,30 @@ export type UpdateAdminInput = {
   active?: boolean;
 };
 
-export type CreditPackBadge = 'popular' | 'value';
+export type CreditPackageBadge = 'popular' | 'value';
 
-export type CreditPack = {
+export type CreditPackage = {
   id: string;
   name: string;
   credits: number;
   price: number;
-  badge?: CreditPackBadge;
+  badge?: CreditPackageBadge;
   sortOrder: number;
   active: boolean;
 };
 
-export type CreateCreditPackInput = {
+export type CreateCreditPackageInput = {
   name: string;
   credits: number;
   price: number;
-  badge?: CreditPackBadge | null;
+  badge?: CreditPackageBadge | null;
 };
 
-export type UpdateCreditPackInput = {
+export type UpdateCreditPackageInput = {
   name?: string;
   credits?: number;
   price?: number;
-  badge?: CreditPackBadge | null;
+  badge?: CreditPackageBadge | null;
   active?: boolean;
 };
 
@@ -122,7 +122,7 @@ export type CreditLedgerEntry = {
 
 export type CreditsOverview = {
   vatRate: number;
-  packs: CreditPack[];
+  packs: CreditPackage[];
   promos: PromoCode[];
   transactions: CreditLedgerEntry[];
   stats: {

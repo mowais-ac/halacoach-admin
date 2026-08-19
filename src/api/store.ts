@@ -1,4 +1,4 @@
-import type {AdminRecord, AdminRole, CatalogService, Client, Conversation, CreditPack, CreditPurchase, LegalDocument, MarketplaceLead, Professional, PromoCode, QuoteRequest, SupportTicket} from './types';
+import type {AdminRecord, AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, PromoCode, QuoteRequest, SupportTicket} from './types';
 import {seedConversations} from './messages-seed';
 import {seedSupportTickets} from './support-seed';
 import {seedLegalDocuments} from './content-seed';
@@ -49,15 +49,8 @@ export const seedAdmins: AdminRecord[] = [
   },
 ];
 
-export const seedCreditPacks: CreditPack[] = [
-  {id: 'starter', name: 'Starter', credits: 10, price: 199, sortOrder: 1, active: true},
-  {id: 'growth', name: 'Growth', credits: 30, price: 499, badge: 'popular', sortOrder: 2, active: true},
-  {id: 'scale', name: 'Scale', credits: 75, price: 999, badge: 'value', sortOrder: 3, active: true},
-];
-
 export type MockState = {
   admins: AdminRecord[];
-  packs: CreditPack[];
   lookups: LookupOption[];
   settings: AppSettings;
   services: CatalogService[];
@@ -74,7 +67,6 @@ export type MockState = {
 
 const memory: MockState = {
   admins: structuredClone(seedAdmins),
-  packs: structuredClone(seedCreditPacks),
   lookups: structuredClone(seedLookups),
   settings: structuredClone(seedSettings),
   services: structuredClone(seedServices),
@@ -106,7 +98,6 @@ function readStorage(): Partial<MockState> | null {
 
 function persist(state: MockState) {
   memory.admins = state.admins;
-  memory.packs = state.packs;
   memory.lookups = state.lookups;
   memory.settings = state.settings;
   memory.services = state.services;
@@ -124,35 +115,6 @@ function persist(state: MockState) {
   }
 }
 
-function mergePacks(stored?: CreditPack[]): CreditPack[] {
-  const seed = structuredClone(seedCreditPacks);
-  const seedById = new Map(seed.map(item => [item.id, item]));
-  if (!stored?.length) {
-    return seed;
-  }
-  const merged = stored.map((item, index) => {
-    const defaults = seedById.get(item.id);
-    const name =
-      item.name?.trim() ||
-      defaults?.name ||
-      item.id.replace(/-/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
-    return {
-      ...defaults,
-      ...item,
-      name,
-      credits: item.credits > 0 ? item.credits : defaults?.credits ?? item.credits,
-      price: item.price > 0 ? item.price : defaults?.price ?? item.price,
-      sortOrder: item.sortOrder ?? defaults?.sortOrder ?? index + 1,
-      active: item.active ?? defaults?.active ?? true,
-    };
-  });
-  for (const item of seed) {
-    if (!merged.some(row => row.id === item.id)) {
-      merged.push({...item, sortOrder: merged.length + 1});
-    }
-  }
-  return merged.sort((a, b) => a.sortOrder - b.sortOrder);
-}
 
 function mergeServices(stored?: CatalogService[]): CatalogService[] {
   const seed = structuredClone(seedServices);
@@ -298,7 +260,6 @@ function mergeQuoteRequests(stored?: QuoteRequest[]): QuoteRequest[] {
 function mergeState(stored: Partial<MockState> | null): MockState {
   return {
     admins: stored?.admins?.length ? stored.admins : structuredClone(seedAdmins),
-    packs: mergePacks(stored?.packs),
     lookups: stored?.lookups?.length ? stored.lookups : structuredClone(seedLookups),
     settings: stored?.settings ?? structuredClone(seedSettings),
     services: mergeServices(stored?.services),
@@ -319,7 +280,6 @@ function mergeState(stored: Partial<MockState> | null): MockState {
 export function getMockState(): MockState {
   const next = mergeState(readStorage());
   memory.admins = next.admins;
-  memory.packs = next.packs;
   memory.lookups = next.lookups;
   memory.settings = next.settings;
   memory.services = next.services;
@@ -339,7 +299,6 @@ export function setMockState(patch: Partial<MockState>) {
   const current = getMockState();
   persist({
     admins: patch.admins ?? current.admins,
-    packs: patch.packs ?? current.packs,
     lookups: patch.lookups ?? current.lookups,
     settings: patch.settings ?? current.settings,
     services: patch.services ?? current.services,

@@ -6,7 +6,6 @@ import type {
   Client,
   ClientSummary,
   CreateServiceInput,
-  CreditPack,
   CreditsOverview,
   HealthResponse,
   InviteAdminInput,
@@ -24,7 +23,6 @@ import type {
   SessionResponse,
   UpdateAdminInput,
   UpdateClientInput,
-  UpdateCreditPackInput,
   UpdateLeadInput,
   UpdateLegalDocumentInput,
   UpdateProfessionalInput,
@@ -43,7 +41,6 @@ import type {
   UpdateSupportTicketInput,
   ConversationDetail,
   ConversationSummary,
-  CreateCreditPackInput,
   DashboardOverview,
 } from './types';
 
@@ -61,7 +58,7 @@ export type {
   ContentLang,
   ConversationDetail,
   ConversationSummary,
-  CreateCreditPackInput,
+  CreateCreditPackageInput,
   CreatePromoInput,
   CreateServiceInput,
   DashboardActivity,
@@ -69,8 +66,8 @@ export type {
   DashboardCounts,
   DashboardOverview,
   CreditLedgerEntry,
-  CreditPack,
-  CreditPackBadge,
+  CreditPackage,
+  CreditPackageBadge,
   CreditsOverview,
   CreditPurchase,
   HealthResponse,
@@ -104,7 +101,7 @@ export type {
   SupportUserType,
   UpdateAdminInput,
   UpdateClientInput,
-  UpdateCreditPackInput,
+  UpdateCreditPackageInput,
   UpdateLeadInput,
   UpdateLegalDocumentInput,
   UpdateProfessionalInput,
@@ -151,31 +148,13 @@ export function updateAdmin(id: string, input: UpdateAdminInput & {actorId: stri
   });
 }
 
-export function listCreditPacks() {
-  return request<CreditPack[]>('/admin/credit-packs');
-}
-
-export function getCreditsOverview() {
-  return request<CreditsOverview>('/admin/credits');
-}
-
-export function createCreditPack(input: CreateCreditPackInput) {
-  return request<CreditPack>('/admin/credit-packs', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateCreditPack(id: string, input: UpdateCreditPackInput) {
-  return request<CreditPack>(`/admin/credit-packs/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
-}
-
-/** @deprecated Use updateCreditPack */
-export function updateCreditPackPrice(id: string, price: number) {
-  return updateCreditPack(id, {price});
+export async function getCreditsOverview(): Promise<CreditsOverview> {
+  const {listCreditPackages} = await import('@/lib/apis');
+  const [packs, rest] = await Promise.all([
+    listCreditPackages(),
+    request<Omit<CreditsOverview, 'packs'>>('/admin/credits-meta'),
+  ]);
+  return {...rest, packs};
 }
 
 export function createPromoCode(input: CreatePromoInput) {

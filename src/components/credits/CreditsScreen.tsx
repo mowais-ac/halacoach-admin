@@ -3,18 +3,17 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {
   adjustCredits,
-  createCreditPack,
   createPromoCode,
   getCreditsOverview,
   isApiError,
   listProfessionals,
-  updateCreditPack,
   updatePromoCode,
-  type CreditPackBadge,
   type CreditsOverview,
   type ProfessionalSummary,
   type SessionUser,
 } from '@/api';
+import {createCreditPackage, updateCreditPackage} from '@/lib/apis';
+import type {CreditPackageBadge} from '@/api/types';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
@@ -35,7 +34,7 @@ type PackDraft = {
   name: string;
   credits: string;
   price: string;
-  badge: CreditPackBadge | '';
+  badge: CreditPackageBadge | '';
 };
 
 type PromoDraft = {
@@ -209,7 +208,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     setSavingPack(packId);
     setError(null);
     try {
-      await updateCreditPack(packId, {
+      await updateCreditPackage(packId, {
         name,
         credits,
         price,
@@ -241,7 +240,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
       return;
     }
     try {
-      await createCreditPack({
+      await createCreditPackage({
         name: packForm.name.trim(),
         credits,
         price,
@@ -297,7 +296,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
 
   const togglePack = async (packId: string, active: boolean) => {
     try {
-      await updateCreditPack(packId, {active});
+      await updateCreditPackage(packId, {active});
       setEditingPackId(current => (current === packId ? null : current));
       await load();
     } catch (err) {
@@ -589,7 +588,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                             ...state,
                             [pack.id]: {
                               ...draft,
-                              badge: e.target.value as CreditPackBadge | '',
+                              badge: e.target.value as CreditPackageBadge | '',
                             },
                           }))
                         }>
@@ -678,7 +677,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     onChange={e =>
                       setPackForm(form => ({
                         ...form,
-                        badge: e.target.value as CreditPackBadge | '',
+                        badge: e.target.value as CreditPackageBadge | '',
                       }))
                     }>
                     <option value="">None</option>

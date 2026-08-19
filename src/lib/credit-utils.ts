@@ -5,7 +5,7 @@ import type {
   Professional,
   PromoCode,
 } from '@/api/types';
-import type {CreditPack} from '@/api/types';
+import type {CreditPackage} from '@/api/types';
 import type {AppSettings} from '@/api/lookups';
 
 export function buildCreditLedger(
@@ -37,7 +37,7 @@ export function buildCreditLedger(
 
 export function buildCreditsOverview(input: {
   settings: AppSettings;
-  packs: CreditPack[];
+  packs: CreditPackage[];
   promos: PromoCode[];
   professionals: Professional[];
   purchases: CreditPurchase[];
