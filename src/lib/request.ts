@@ -11,7 +11,7 @@ function isRealApiPath(path: string): boolean {
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = config.apiUrl.replace(/\/$/, '');
+  const base = config.apiBaseUrl.replace(/\/$/, '');
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
@@ -29,7 +29,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  if (config.apiUrl && isRealApiPath(path)) {
+  if (config.apiBaseUrl && isRealApiPath(path)) {
     return apiRequest<T>(path, init);
   }
   return mockRequest<T>(path, init);
