@@ -17,7 +17,7 @@ export function DataTable({
   columnHeaderClassNames?: (string | undefined)[];
 }) {
   return (
-    <div className={cn('overflow-x-auto rounded-2xl border border-border bg-card', className)}>
+    <div className={cn('overflow-x-auto overflow-y-hidden rounded-2xl border border-border bg-card', className)}>
       <table className={cn('w-full min-w-[640px] text-left text-sm', tableClassName)}>
         {columnWidths?.length ? (
           <colgroup>

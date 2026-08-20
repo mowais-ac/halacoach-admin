@@ -122,6 +122,10 @@ const tableSelectClass =
 const creditPackageTableCellClass = 'flex h-9 items-center';
 const creditPackageActionButtonClass = 'w-[4.75rem] shrink-0 justify-center';
 const creditPackageArchiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
+const creditPackageAddButtonClass = cn(
+  creditPackageActionButtonClass,
+  'transform-gpu disabled:opacity-100 disabled:bg-primary-soft disabled:text-primary',
+);
 
 function CreditPackageTableCell({children, className}: {children: React.ReactNode; className?: string}) {
   return <div className={cn(creditPackageTableCellClass, className)}>{children}</div>;
@@ -145,7 +149,7 @@ function CatalogActions({
   onToggle: () => void;
 }) {
   return (
-    <CreditPackageTableCell className="justify-end gap-1">
+    <CreditPackageTableCell className="flex-nowrap justify-end gap-1">
       {isEditing ? (
         <Button size="sm" variant="outline" className={creditPackageActionButtonClass} onClick={onCancel}>
           Cancel
@@ -807,18 +811,11 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                 </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <CreditPackageTableCell className="justify-end gap-1">
+                <CreditPackageTableCell className="flex-nowrap justify-end gap-1">
+                  <span className={creditPackageActionButtonClass} aria-hidden />
                   <Button
                     size="sm"
-                    variant="outline"
-                    className={cn(creditPackageActionButtonClass, 'invisible pointer-events-none')}
-                    tabIndex={-1}
-                    aria-hidden>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className={creditPackageActionButtonClass}
+                    className={creditPackageAddButtonClass}
                     disabled={
                       creatingCreditPackage ||
                       !creditPackageForm.name.trim() ||
@@ -827,17 +824,10 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                     }
                     onClick={() => void submitCreateCreditPackage()}>
                     {creatingCreditPackage ? (
-                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/40 border-t-current" />
                     ) : 'Add'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={cn(creditPackageArchiveButtonClass, 'invisible pointer-events-none')}
-                    tabIndex={-1}
-                    aria-hidden>
-                    Archive
-                  </Button>
+                  <span className={creditPackageArchiveButtonClass} aria-hidden />
                 </CreditPackageTableCell>
               </td>
             </tr>
@@ -1063,34 +1053,20 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
                 </CreditPackageTableCell>
               </td>
               <td className="px-4 py-2">
-                <CreditPackageTableCell className="justify-end gap-1">
+                <CreditPackageTableCell className="flex-nowrap justify-end gap-1">
+                  <span className={creditPackageActionButtonClass} aria-hidden />
                   <Button
                     size="sm"
-                    variant="outline"
-                    className={cn(creditPackageActionButtonClass, 'invisible pointer-events-none')}
-                    tabIndex={-1}
-                    aria-hidden>
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    className={creditPackageActionButtonClass}
+                    className={creditPackageAddButtonClass}
                     disabled={creatingPromo || !isPromoDraftValid(promoForm)}
                     onClick={() => void submitCreatePromo()}>
                     {creatingPromo ? (
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/40 border-t-current" />
                     ) : (
                       'Add'
                     )}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className={cn(creditPackageArchiveButtonClass, 'invisible pointer-events-none')}
-                    tabIndex={-1}
-                    aria-hidden>
-                    Deactivate
-                  </Button>
+                  <span className={creditPackageArchiveButtonClass} aria-hidden />
                 </CreditPackageTableCell>
               </td>
             </tr>
