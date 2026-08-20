@@ -40,14 +40,14 @@ type EditForm = {
   availability: string;
   priceFrom: string;
   radiusKm: string;
-  serviceSlugs: string[];
+  serviceIds: number[];
   locations: Professional['locations'];
 };
 
 function completionChecks(pro: Professional) {
   return [
     {label: 'Name and email', done: Boolean(pro.name && pro.email)},
-    {label: 'Services selected', done: pro.serviceSlugs.length > 0},
+    {label: 'Services selected', done: pro.serviceIds.length > 0},
     {label: 'Locations set', done: pro.locations.length > 0},
     {label: 'Certifications uploaded', done: pro.certificationFiles.length > 0},
     {label: 'Insurance uploaded', done: pro.insuranceFiles.length > 0},
@@ -69,7 +69,7 @@ function toEditForm(pro: Professional): EditForm {
     availability: pro.availability,
     priceFrom: pro.priceFrom,
     radiusKm: String(pro.radiusKm),
-    serviceSlugs: [...pro.serviceSlugs],
+    serviceIds: [...pro.serviceIds],
     locations: [...pro.locations],
   };
 }
@@ -133,8 +133,8 @@ export function ProfessionalDetailScreen({
   }, [id]);
 
   const serviceNames = useMemo(() => {
-    const bySlug = new Map(services.map(item => [item.slug, item.nameEn]));
-    return (pro?.serviceSlugs ?? []).map(slug => bySlug.get(slug) ?? slug);
+    const byId = new Map(services.map(item => [item.id, item.name]));
+    return (pro?.serviceIds ?? []).map(id => byId.get(id) ?? `#${id}`);
   }, [pro, services]);
 
   const pct = pro ? profileCompletion(pro) : 0;
@@ -160,7 +160,7 @@ export function ProfessionalDetailScreen({
         availability: form.availability,
         priceFrom: form.priceFrom,
         radiusKm: Number(form.radiusKm) || 0,
-        serviceSlugs: form.serviceSlugs,
+        serviceIds: form.serviceIds,
         locations: form.locations,
       });
       setPro(updated);
@@ -203,14 +203,14 @@ export function ProfessionalDetailScreen({
     }
   };
 
-  const toggleService = (slug: string) => {
+  const toggleService = (id: number) => {
     if (!form) {
       return;
     }
-    const next = form.serviceSlugs.includes(slug)
-      ? form.serviceSlugs.filter(item => item !== slug)
-      : [...form.serviceSlugs, slug];
-    setForm({...form, serviceSlugs: next});
+    const next = form.serviceIds.includes(id)
+      ? form.serviceIds.filter(item => item !== id)
+      : [...form.serviceIds, id];
+    setForm({...form, serviceIds: next});
   };
 
   const toggleLocation = (key: Professional['locations'][number]) => {
@@ -307,13 +307,13 @@ export function ProfessionalDetailScreen({
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => toggleService(item.slug)}
+                    onClick={() => toggleService(item.id)}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                      form.serviceSlugs.includes(item.slug)
+                      form.serviceIds.includes(item.id)
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
                     }`}>
-                    {item.nameEn}
+                    {item.name}
                   </button>
                 ))}
               </div>

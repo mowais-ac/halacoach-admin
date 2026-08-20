@@ -166,19 +166,19 @@ Add option to unlocked group. **Body:** `{ groupId, label, value? }`
 
 ## Services catalog (M3)
 
-### `GET /admin/services`
+### `GET /v1/services`
 
-### `POST /admin/services`
+Alphabetical by name. Admin returns all; public returns active only.
 
-**Body:** `{ nameEn, nameAr, slug? }`
+**Response item:** `{ id, name, active }`
 
-### `PATCH /admin/services/:id`
+### `POST /v1/services`
 
-**Body:** `{ nameEn?, nameAr?, slug?, active? }`
+**Body:** `{ name }`
 
-### `POST /admin/services/reorder`
+### `PATCH /v1/services/:id`
 
-**Body:** `{ ids: string[] }` — full ordered id list
+**Body:** `{ name?, active? }`
 
 ---
 

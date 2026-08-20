@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useEffect, useMemo, useState} from 'react';
 import {ChevronRight} from 'lucide-react';
-import {isApiError, listLeads, type LeadSummary, type SessionUser} from '@/api';
+import {isApiError, listLeads, listServices, type CatalogService, type LeadSummary, type SessionUser} from '@/api';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {DataTable, FilterBar} from '@/components/ui/DataTable';
@@ -17,6 +17,7 @@ type Filter = 'all' | 'open' | 'unlocked' | 'closed';
 
 export function LeadsScreen({actor}: {actor: SessionUser}) {
   const [rows, setRows] = useState<LeadSummary[]>([]);
+  const [services, setServices] = useState<CatalogService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
@@ -26,7 +27,9 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
     setLoading(true);
     setError(null);
     try {
-      setRows(await listLeads());
+      const [leads, catalog] = await Promise.all([listLeads(), listServices()]);
+      setRows(leads);
+      setServices(catalog);
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not load leads.');
     } finally {
@@ -37,6 +40,11 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
   useEffect(() => {
     void load();
   }, []);
+
+  const serviceNameById = useMemo(
+    () => new Map(services.map(item => [item.id, item.name])),
+    [services],
+  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,14 +61,15 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
       if (!q) {
         return true;
       }
+      const serviceName = serviceNameById.get(row.serviceId) ?? '';
       return (
         row.goal.toLowerCase().includes(q) ||
         row.clientName.toLowerCase().includes(q) ||
         row.location.toLowerCase().includes(q) ||
-        row.serviceSlug.includes(q)
+        serviceName.toLowerCase().includes(q)
       );
     });
-  }, [rows, filter, query]);
+  }, [rows, filter, query, serviceNameById]);
 
   const counts = useMemo(
     () => ({
@@ -122,7 +131,9 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
             <tr key={row.id} className="border-b border-border last:border-0">
               <td className="px-4 py-3">
                 <div className="font-medium text-foreground">{row.goal}</div>
-                <div className="text-xs text-muted-foreground">{row.serviceSlug}</div>
+                <div className="text-xs text-muted-foreground">
+                  {serviceNameById.get(row.serviceId) ?? `#${row.serviceId}`}
+                </div>
               </td>
               <td className="px-4 py-3 text-sm">{row.clientName}</td>
               <td className="px-4 py-3 text-muted-foreground">{row.location}</td>

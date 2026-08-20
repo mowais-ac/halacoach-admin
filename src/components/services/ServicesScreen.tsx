@@ -1,54 +1,110 @@
 'use client';
 
-import {FormEvent, useEffect, useMemo, useState} from 'react';
-import {ChevronDown, ChevronUp} from 'lucide-react';
+import {useEffect, useState} from 'react';
 import {
   createService,
   isApiError,
   listServices,
-  reorderServices,
   updateService,
   type CatalogService,
   type SessionUser,
 } from '@/api';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
-import {Card} from '@/components/ui/Card';
-import {ConfirmDialog} from '@/components/ui/ConfirmDialog';
 import {DataTable} from '@/components/ui/DataTable';
-import {EmptyState} from '@/components/ui/EmptyState';
-import {ErrorState} from '@/components/ui/ErrorState';
-import {FilterBar} from '@/components/ui/DataTable';
-import {Input} from '@/components/ui/Input';
-import {LoadingState} from '@/components/ui/LoadingState';
 import {PageHeader} from '@/components/ui/PageHeader';
+import {cn} from '@/lib/cn';
 import {can} from '@/lib/permissions';
 
-type Filter = 'all' | 'active' | 'archived';
+const tableInputClass =
+  'h-9 w-full rounded-lg border border-border bg-background px-2.5 text-sm outline-none focus:border-primary';
+const tableCellClass = 'flex h-9 items-center';
+const actionButtonClass = 'w-[4.75rem] shrink-0 justify-center';
+const archiveButtonClass = 'min-w-[5.5rem] shrink-0 justify-center';
+const addButtonClass = cn(
+  actionButtonClass,
+  'transform-gpu disabled:opacity-100 disabled:bg-primary-soft disabled:text-primary',
+);
 
-const emptyForm = {nameEn: '', nameAr: '', slug: ''};
+function TableCell({children, className}: {children: React.ReactNode; className?: string}) {
+  return <div className={cn(tableCellClass, className)}>{children}</div>;
+}
+
+function CatalogActions({
+  isEditing,
+  saving,
+  onCancel,
+  onSave,
+  onEdit,
+  toggleLabel,
+  onToggle,
+}: {
+  isEditing: boolean;
+  saving: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+  onEdit: () => void;
+  toggleLabel: string;
+  onToggle: () => void;
+}) {
+  return (
+    <TableCell className="flex-nowrap justify-end gap-1">
+      {isEditing ? (
+        <Button size="sm" variant="outline" className={actionButtonClass} onClick={onCancel}>
+          Cancel
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className={cn(actionButtonClass, 'invisible pointer-events-none')}
+          tabIndex={-1}
+          aria-hidden>
+          Cancel
+        </Button>
+      )}
+      {isEditing ? (
+        <Button size="sm" className={actionButtonClass} disabled={saving} onClick={onSave}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" className={actionButtonClass} onClick={onEdit}>
+          Edit
+        </Button>
+      )}
+      <Button size="sm" variant="outline" className={archiveButtonClass} onClick={onToggle}>
+        {toggleLabel}
+      </Button>
+    </TableCell>
+  );
+}
 
 export function ServicesScreen({actor}: {actor: SessionUser}) {
   const canWrite = can(actor.role, 'services:write');
-  const [services, setServices] = useState<CatalogService[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState<{
+    items: CatalogService[];
+    isLoading: boolean;
+    error: string | null;
+  }>({items: [], isLoading: true, error: null});
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [createName, setCreateName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
-  const [query, setQuery] = useState('');
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [pendingArchive, setPendingArchive] = useState<CatalogService | null>(null);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
+    setServices(state => ({...state, isLoading: true, error: null}));
     try {
-      setServices(await listServices());
+      const items = await listServices();
+      setServices({items, isLoading: false, error: null});
+      setDrafts(Object.fromEntries(items.map(item => [item.id, item.name])));
     } catch (err) {
-      setError(isApiError(err) ? err.message : 'Could not load services.');
-    } finally {
-      setLoading(false);
+      setServices(state => ({
+        ...state,
+        isLoading: false,
+        error: isApiError(err) ? err.message : 'Could not load services.',
+      }));
     }
   };
 
@@ -56,87 +112,62 @@ export function ServicesScreen({actor}: {actor: SessionUser}) {
     void load();
   }, []);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return services.filter(item => {
-      if (filter === 'active' && !item.active) {
-        return false;
-      }
-      if (filter === 'archived' && item.active) {
-        return false;
-      }
-      if (!q) {
-        return true;
-      }
-      return (
-        item.nameEn.toLowerCase().includes(q) ||
-        item.nameAr.includes(q) ||
-        item.slug.includes(q)
-      );
-    });
-  }, [services, filter, query]);
-
-  const counts = useMemo(
-    () => ({
-      total: services.length,
-      active: services.filter(item => item.active).length,
-    }),
-    [services],
-  );
-
-  const resetForm = () => {
-    setForm(emptyForm);
-    setEditingId(null);
-    setFormError(null);
+  const startEdit = (service: CatalogService) => {
+    setEditingId(service.id);
+    setDrafts(state => ({...state, [service.id]: service.name}));
+    setError(null);
   };
 
-  const onSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setFormError(null);
+  const cancelEdit = (service: CatalogService) => {
+    setEditingId(current => (current === service.id ? null : current));
+    setDrafts(state => ({...state, [service.id]: service.name}));
+  };
+
+  const save = async (id: number) => {
+    const name = (drafts[id] ?? '').trim();
+    if (!name) {
+      setError('Service name cannot be empty.');
+      return;
+    }
+    setSavingId(id);
+    setError(null);
     try {
-      if (editingId) {
-        await updateService(editingId, form);
-      } else {
-        await createService(form);
-      }
-      resetForm();
+      await updateService(id, {name});
+      setEditingId(current => (current === id ? null : current));
       await load();
     } catch (err) {
-      setFormError(isApiError(err) ? err.message : 'Could not save service.');
+      setError(isApiError(err) ? err.message : 'Could not save service.');
+    } finally {
+      setSavingId(null);
     }
   };
 
-  const move = async (id: string, direction: -1 | 1) => {
-    const ids = services.map(item => item.id);
-    const index = ids.indexOf(id);
-    const next = index + direction;
-    if (index < 0 || next < 0 || next >= ids.length) {
-      return;
-    }
-    const swapped = [...ids];
-    const current = swapped[index]!;
-    swapped[index] = swapped[next]!;
-    swapped[next] = current;
+  const toggleActive = async (service: CatalogService) => {
     setError(null);
     try {
-      setServices(await reorderServices(swapped));
-    } catch (err) {
-      setError(isApiError(err) ? err.message : 'Could not reorder services.');
-    }
-  };
-
-  const confirmArchive = async () => {
-    if (!pendingArchive) {
-      return;
-    }
-    setError(null);
-    try {
-      await updateService(pendingArchive.id, {active: !pendingArchive.active});
-      setPendingArchive(null);
+      await updateService(service.id, {active: !service.active});
       await load();
     } catch (err) {
       setError(isApiError(err) ? err.message : 'Could not update service.');
-      setPendingArchive(null);
+    }
+  };
+
+  const submitCreate = async () => {
+    const name = createName.trim();
+    if (!name) {
+      setError('Service name cannot be empty.');
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      await createService({name});
+      setCreateName('');
+      await load();
+    } catch (err) {
+      setError(isApiError(err) ? err.message : 'Could not create service.');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -145,147 +176,130 @@ export function ServicesScreen({actor}: {actor: SessionUser}) {
       <PageHeader
         title="Services"
         module="M3"
-        description="Catalog for professional onboarding. Archived services stay in the database so existing coach profiles still resolve."
+        description="Catalog for professional onboarding. Archived services stay available so existing coach profiles still resolve."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Badge tone="primary">{counts.active} active</Badge>
-        <Badge>{counts.total} in catalog</Badge>
-      </div>
-
-      {canWrite ? (
-        <Card className="mb-6">
-          <p className="mb-4 font-semibold text-foreground">
-            {editingId ? 'Edit service' : 'Add service'}
-          </p>
-          <form className="grid gap-4 md:grid-cols-3" onSubmit={e => void onSubmit(e)}>
-            <Input
-              label="Name (English)"
-              value={form.nameEn}
-              onChange={e => setForm(s => ({...s, nameEn: e.target.value}))}
-              required
-            />
-            <Input
-              label="الاسم (العربية)"
-              dir="rtl"
-              value={form.nameAr}
-              onChange={e => setForm(s => ({...s, nameAr: e.target.value}))}
-              required
-            />
-            <Input
-              label="Slug"
-              placeholder="auto from English name"
-              value={form.slug}
-              onChange={e => setForm(s => ({...s, slug: e.target.value}))}
-            />
-            {formError ? (
-              <p className="md:col-span-3 text-sm text-destructive">{formError}</p>
-            ) : null}
-            <div className="md:col-span-3 flex gap-2">
-              <Button type="submit">{editingId ? 'Save changes' : 'Add service'}</Button>
-              {editingId ? (
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
+      {error ? (
+        <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-destructive">{error}</p>
       ) : null}
 
-      <FilterBar>
-        {(['all', 'active', 'archived'] as Filter[]).map(item => (
-          <Button
-            key={item}
-            size="sm"
-            variant={filter === item ? 'primary' : 'outline'}
-            onClick={() => setFilter(item)}>
-            {item === 'all' ? 'All' : item === 'active' ? 'Active' : 'Archived'}
-          </Button>
-        ))}
-        <input
-          className="h-9 min-w-[200px] flex-1 rounded-xl border border-border px-3 text-sm"
-          placeholder="Search English, Arabic, or slug"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-        />
-      </FilterBar>
-
-      {loading ? <LoadingState label="Loading services…" /> : null}
-      {error ? <ErrorState body={error} onRetry={() => void load()} /> : null}
-      {!loading && !error && visible.length === 0 ? (
-        <EmptyState title="No services" body="Try another filter, or add a service." />
+      {!canWrite ? (
+        <p className="mb-4 rounded-xl bg-primary-soft px-4 py-3 text-sm text-primary-deep">
+          View only — adding or editing services requires super admin.
+        </p>
       ) : null}
 
-      {!loading && visible.length > 0 ? (
-        <DataTable columns={['Order', 'English', 'Arabic', 'Slug', 'Status', '']}>
-          {visible.map(item => (
-            <tr key={item.id} className="border-b border-border last:border-0">
-              <td className="px-4 py-3 text-muted-foreground">{item.sortOrder}</td>
-              <td className="px-4 py-3 font-medium text-foreground">{item.nameEn}</td>
-              <td className="px-4 py-3 text-foreground" dir="rtl">
-                {item.nameAr}
-              </td>
-              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{item.slug}</td>
-              <td className="px-4 py-3">
-                <Badge tone={item.active ? 'primary' : 'danger'}>
-                  {item.active ? 'Active' : 'Archived'}
-                </Badge>
-              </td>
-              <td className="px-4 py-3">
-                {canWrite ? (
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label="Move up"
-                      onClick={() => void move(item.id, -1)}>
-                      <ChevronUp size={16} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label="Move down"
-                      onClick={() => void move(item.id, 1)}>
-                      <ChevronDown size={16} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingId(item.id);
-                        setForm({nameEn: item.nameEn, nameAr: item.nameAr, slug: item.slug});
-                        setFormError(null);
-                      }}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={item.active ? 'outline' : 'primary'}
-                      onClick={() => setPendingArchive(item)}>
-                      {item.active ? 'Archive' : 'Restore'}
-                    </Button>
-                  </div>
-                ) : null}
+      <div className="mb-8">
+        <DataTable
+          tableClassName="table-fixed"
+          columnWidths={canWrite ? ['58%', '18%', '24%'] : ['70%', '30%']}
+          columns={canWrite ? ['Name', 'Status', 'Actions'] : ['Name', 'Status']}>
+          {services.isLoading && services.items.length === 0 ? (
+            <tr>
+              <td colSpan={canWrite ? 3 : 2} className="px-4 py-8 text-center">
+                <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" />
               </td>
             </tr>
-          ))}
+          ) : null}
+          {services.error ? (
+            <tr>
+              <td colSpan={canWrite ? 3 : 2} className="px-4 py-6 text-center">
+                <p className="mb-2 text-sm text-destructive">{services.error}</p>
+                <button className="text-xs text-primary underline" onClick={() => void load()}>
+                  Retry
+                </button>
+              </td>
+            </tr>
+          ) : null}
+          {services.items.map(service => {
+            const draft = drafts[service.id] ?? service.name;
+            const isEditing = canWrite && editingId === service.id;
+            return (
+              <tr
+                key={service.id}
+                className={cn(
+                  'border-b border-border last:border-0',
+                  !service.active && 'bg-muted/30',
+                  isEditing && 'bg-primary-soft/30',
+                )}>
+                <td className="px-4 py-2">
+                  <TableCell>
+                    {isEditing ? (
+                      <input
+                        className={tableInputClass}
+                        value={draft}
+                        onChange={e =>
+                          setDrafts(state => ({...state, [service.id]: e.target.value}))
+                        }
+                      />
+                    ) : (
+                      <span className="truncate font-medium text-foreground">{service.name}</span>
+                    )}
+                  </TableCell>
+                </td>
+                <td className="px-4 py-2">
+                  <TableCell>
+                    {service.active ? (
+                      <Badge tone="primary">Active</Badge>
+                    ) : (
+                      <Badge tone="muted">Archived</Badge>
+                    )}
+                  </TableCell>
+                </td>
+                {canWrite ? (
+                  <td className="px-4 py-2">
+                    <CatalogActions
+                      isEditing={isEditing}
+                      saving={savingId === service.id}
+                      onCancel={() => cancelEdit(service)}
+                      onSave={() => void save(service.id)}
+                      onEdit={() => startEdit(service)}
+                      toggleLabel={service.active ? 'Archive' : 'Restore'}
+                      onToggle={() => void toggleActive(service)}
+                    />
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
+          {canWrite ? (
+            <tr className="border-t-2 border-border bg-primary-soft/40">
+              <td className="px-4 py-2">
+                <TableCell>
+                  <input
+                    className={tableInputClass}
+                    value={createName}
+                    onChange={e => setCreateName(e.target.value)}
+                    placeholder="Personal Training"
+                  />
+                </TableCell>
+              </td>
+              <td className="px-4 py-2">
+                <TableCell>
+                  <Badge tone="sky">New</Badge>
+                </TableCell>
+              </td>
+              <td className="px-4 py-2">
+                <TableCell className="flex-nowrap justify-end gap-1">
+                  <span className={actionButtonClass} aria-hidden />
+                  <Button
+                    size="sm"
+                    className={addButtonClass}
+                    disabled={creating || !createName.trim()}
+                    onClick={() => void submitCreate()}>
+                    {creating ? (
+                      <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current/40 border-t-current" />
+                    ) : (
+                      'Add'
+                    )}
+                  </Button>
+                  <span className={archiveButtonClass} aria-hidden />
+                </TableCell>
+              </td>
+            </tr>
+          ) : null}
         </DataTable>
-      ) : null}
-
-      <ConfirmDialog
-        open={pendingArchive !== null}
-        title={pendingArchive?.active ? 'Archive this service?' : 'Restore this service?'}
-        body={
-          pendingArchive?.active
-            ? `${pendingArchive.nameEn} will be hidden from new coach onboarding. Existing profiles keep the slug.`
-            : `${pendingArchive?.nameEn ?? ''} will show again in professional onboarding.`
-        }
-        confirmLabel={pendingArchive?.active ? 'Archive' : 'Restore'}
-        destructive={pendingArchive?.active}
-        onClose={() => setPendingArchive(null)}
-        onConfirm={() => void confirmArchive()}
-      />
+      </div>
     </>
   );
 }

@@ -66,9 +66,7 @@ export function VerificationScreen({actor}: {actor: SessionUser}) {
 
   const selected = queue.find(item => item.id === selectedId) ?? null;
   const serviceNames = selected
-    ? selected.serviceSlugs.map(
-        slug => services.find(item => item.slug === slug)?.nameEn ?? slug,
-      )
+    ? selected.serviceIds.map(id => services.find(item => item.id === id)?.name ?? `#${id}`)
     : [];
 
   const onApprove = async () => {

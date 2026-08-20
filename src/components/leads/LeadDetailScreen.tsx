@@ -75,7 +75,8 @@ export function LeadDetailScreen({actor, id}: {actor: SessionUser; id: string}) 
   }, [id]);
 
   const serviceName =
-    services.find(item => item.slug === lead?.serviceSlug)?.nameEn ?? lead?.serviceSlug ?? '—';
+    services.find(item => item.id === lead?.serviceId)?.name ??
+    (lead?.serviceId != null ? `#${lead.serviceId}` : '—');
 
   const saveCost = async (event: FormEvent) => {
     event.preventDefault();

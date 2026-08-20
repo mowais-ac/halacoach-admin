@@ -12,9 +12,7 @@ import {toLeadDetail, toLeadSummary} from '@/lib/lead-utils';
 import {toProfessionalSummary, toVerificationQueueItem} from '@/lib/professional-utils';
 import {toQuoteRequestDetail, toQuoteRequestSummary} from '@/lib/request-utils';
 import type {
-  CatalogService,
   Client,
-  CreateServiceInput,
   HealthResponse,
   MarketplaceLead,
   Professional,
@@ -24,7 +22,6 @@ import type {
   UpdateLeadInput,
   UpdateProfessionalInput,
   UpdateQuoteRequestInput,
-  UpdateServiceInput,
   AdjustCreditsInput,
   ContentLang,
   LegalDocId,
@@ -177,79 +174,6 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
     return next as T;
   }
 
-  if (path === '/admin/services' && method === 'GET') {
-    return [...state.services].sort((a, b) => a.sortOrder - b.sortOrder) as T;
-  }
-
-  if (path === '/admin/services' && method === 'POST') {
-    const input = parseBody<CreateServiceInput>(init);
-    const nameEn = input.nameEn?.trim();
-    const nameAr = input.nameAr?.trim();
-    if (!nameEn || !nameAr) {
-      throw new ApiError(400, 'English and Arabic names are required.');
-    }
-    const slug = (input.slug?.trim() || slugify(nameEn)).toLowerCase();
-    if (!slug) {
-      throw new ApiError(400, 'Could not create a slug from that name.');
-    }
-    if (state.services.some(item => item.slug === slug)) {
-      throw new ApiError(409, 'A service with that slug already exists.');
-    }
-    const sortOrder = Math.max(0, ...state.services.map(item => item.sortOrder)) + 1;
-    const service: CatalogService = {
-      id: `svc-${slug}-${Date.now()}`,
-      slug,
-      nameEn,
-      nameAr,
-      sortOrder,
-      active: true,
-    };
-    setMockState({services: [...state.services, service]});
-    return service as T;
-  }
-
-  if (path === '/admin/services/reorder' && method === 'POST') {
-    const {ids} = parseBody<{ids: string[]}>(init);
-    if (!Array.isArray(ids) || ids.length !== state.services.length) {
-      throw new ApiError(400, 'Reorder list must include every service.');
-    }
-    const byId = new Map(state.services.map(item => [item.id, item]));
-    const services = ids.map((id, index) => {
-      const current = byId.get(id);
-      if (!current) {
-        throw new ApiError(400, 'Unknown service in reorder list.');
-      }
-      return {...current, sortOrder: index + 1};
-    });
-    setMockState({services});
-    return services as T;
-  }
-
-  const serviceMatch = path.match(/^\/admin\/services\/([^/]+)$/);
-  if (serviceMatch && method === 'PATCH') {
-    const id = serviceMatch[1];
-    const input = parseBody<UpdateServiceInput>(init);
-    const current = state.services.find(item => item.id === id);
-    if (!current) {
-      throw new ApiError(404, 'Service not found.');
-    }
-    const nameEn = input.nameEn?.trim() || current.nameEn;
-    const nameAr = input.nameAr?.trim() || current.nameAr;
-    const slug = (input.slug?.trim() || current.slug).toLowerCase();
-    if (state.services.some(item => item.id !== id && item.slug === slug)) {
-      throw new ApiError(409, 'A service with that slug already exists.');
-    }
-    const next: CatalogService = {
-      ...current,
-      nameEn,
-      nameAr,
-      slug,
-      active: input.active ?? current.active,
-    };
-    setMockState({services: state.services.map(item => (item.id === id ? next : item))});
-    return next as T;
-  }
-
   if (path === '/admin/professionals' && method === 'GET') {
     return state.professionals.map(toProfessionalSummary) as T;
   }
@@ -278,14 +202,7 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
     ) {
       throw new ApiError(409, 'A professional with that email already exists.');
     }
-    const serviceSlugs = input.serviceSlugs ?? current.serviceSlugs;
-    if (input.serviceSlugs) {
-      for (const slug of input.serviceSlugs) {
-        if (!state.services.some(item => item.slug === slug && item.active)) {
-          throw new ApiError(400, `Unknown or inactive service: ${slug}`);
-        }
-      }
-    }
+    const serviceIds = input.serviceIds ?? current.serviceIds;
     const next: Professional = {
       ...current,
       name: input.name?.trim() || current.name,
@@ -298,7 +215,7 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
       style: input.style?.trim() || current.style,
       availability: input.availability?.trim() || current.availability,
       priceFrom: input.priceFrom?.trim() || current.priceFrom,
-      serviceSlugs,
+      serviceIds,
       locations: input.locations ?? current.locations,
       radiusKm: input.radiusKm ?? current.radiusKm,
       activated: input.activated ?? current.activated,

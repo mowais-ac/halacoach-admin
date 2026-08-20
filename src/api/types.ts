@@ -140,24 +140,17 @@ export type AdjustCreditsInput = {
 };
 
 export type CatalogService = {
-  id: string;
-  slug: string;
-  nameEn: string;
-  nameAr: string;
-  sortOrder: number;
+  id: number;
+  name: string;
   active: boolean;
 };
 
 export type CreateServiceInput = {
-  nameEn: string;
-  nameAr: string;
-  slug?: string;
+  name: string;
 };
 
 export type UpdateServiceInput = {
-  nameEn?: string;
-  nameAr?: string;
-  slug?: string;
+  name?: string;
   active?: boolean;
 };
 
@@ -178,7 +171,7 @@ export type Professional = {
   phone: string;
   suspended: boolean;
   createdAt: string;
-  serviceSlugs: string[];
+  serviceIds: number[];
   locations: ('mine' | 'client' | 'online')[];
   radiusKm: number;
   certificationFiles: string[];
@@ -231,7 +224,7 @@ export type UpdateProfessionalInput = {
   style?: string;
   availability?: string;
   priceFrom?: string;
-  serviceSlugs?: string[];
+  serviceIds?: number[];
   locations?: Professional['locations'];
   radiusKm?: number;
   activated?: boolean;
@@ -318,7 +311,7 @@ export type VerificationQueueItem = {
   submittedAt: string;
   certificationFiles: string[];
   insuranceFiles: string[];
-  serviceSlugs: string[];
+  serviceIds: number[];
   profileCompletion: number;
   profileCertifications: string[];
 };
@@ -340,7 +333,7 @@ export type MarketplaceLead = {
   id: string;
   clientId: string;
   goal: string;
-  serviceSlug: string;
+  serviceId: number;
   location: string;
   frequency: string;
   format: string;
@@ -360,7 +353,7 @@ export type LeadSummary = {
   clientId: string;
   clientName: string;
   goal: string;
-  serviceSlug: string;
+  serviceId: number;
   location: string;
   matchScore: number;
   creditCost: number;

@@ -1,4 +1,4 @@
-import type {CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
+import type {Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
 import {seedConversations} from './messages-seed';
 import {seedSupportTickets} from './support-seed';
 import {seedLegalDocuments} from './content-seed';
@@ -9,15 +9,13 @@ import {seedLeads} from './leads-seed';
 import {seedLookups, seedSettings} from './lookups-seed';
 import {seedProfessionals} from './professionals-seed';
 import {seedQuoteRequests} from './requests-seed';
-import {seedServices} from './services-seed';
 import {normalizeNotificationPrefs} from '@/lib/notification-utils';
 
-const STORAGE_KEY = 'hc_admin_mock_v1';
+const STORAGE_KEY = 'hc_admin_mock_v2';
 
 export type MockState = {
   lookups: LookupOption[];
   settings: AppSettings;
-  services: CatalogService[];
   professionals: Professional[];
   clients: Client[];
   leads: MarketplaceLead[];
@@ -31,7 +29,6 @@ export type MockState = {
 const memory: MockState = {
   lookups: structuredClone(seedLookups),
   settings: structuredClone(seedSettings),
-  services: structuredClone(seedServices),
   professionals: structuredClone(seedProfessionals),
   clients: structuredClone(seedClients),
   leads: structuredClone(seedLeads),
@@ -60,7 +57,6 @@ function readStorage(): Partial<MockState> | null {
 function persist(state: MockState) {
   memory.lookups = state.lookups;
   memory.settings = state.settings;
-  memory.services = state.services;
   memory.professionals = state.professionals;
   memory.clients = state.clients;
   memory.leads = state.leads;
@@ -74,21 +70,6 @@ function persist(state: MockState) {
   }
 }
 
-
-function mergeServices(stored?: CatalogService[]): CatalogService[] {
-  const seed = structuredClone(seedServices);
-  if (!stored?.length) {
-    return seed;
-  }
-  const bySlug = new Map(stored.map(item => [item.slug, item]));
-  for (const item of seed) {
-    if (!bySlug.has(item.slug)) {
-      stored.push({...item, sortOrder: stored.length + 1});
-    }
-  }
-  return stored;
-}
-
 function mergeProfessionals(stored?: Professional[]): Professional[] {
   const seed = structuredClone(seedProfessionals);
   const seedById = new Map(seed.map(item => [item.id, item]));
@@ -98,15 +79,14 @@ function mergeProfessionals(stored?: Professional[]): Professional[] {
   const merged = stored.map(item => {
     const defaults = seedById.get(item.id);
     return {
-      ...defaults,
+      ...(defaults ?? item),
       ...item,
-      verificationSubmittedAt:
-        item.verificationSubmittedAt ?? defaults?.verificationSubmittedAt ?? null,
-      verificationRejectedReason:
-        item.verificationRejectedReason ?? defaults?.verificationRejectedReason ?? null,
       notificationPrefs: normalizeNotificationPrefs(
         item.notificationPrefs ?? defaults?.notificationPrefs,
       ),
+      serviceIds: Array.isArray((item as {serviceIds?: number[]}).serviceIds)
+        ? (item as {serviceIds: number[]}).serviceIds
+        : (defaults?.serviceIds ?? []),
     };
   });
   for (const item of seed) {
@@ -125,19 +105,7 @@ function mergeClients(stored?: Client[]): Client[] {
   }
   const merged = stored.map(item => {
     const defaults = seedById.get(item.id);
-    return defaults
-      ? {
-          ...defaults,
-          ...item,
-          answers: {...defaults.answers, ...item.answers},
-          notificationPrefs: normalizeNotificationPrefs(
-            item.notificationPrefs ?? defaults.notificationPrefs,
-          ),
-        }
-      : {
-          ...item,
-          notificationPrefs: normalizeNotificationPrefs(item.notificationPrefs),
-        };
+    return defaults ? {...defaults, ...item} : item;
   });
   for (const item of seed) {
     if (!merged.some(row => row.id === item.id)) {
@@ -155,9 +123,7 @@ function mergeLeads(stored?: MarketplaceLead[]): MarketplaceLead[] {
   }
   const merged = stored.map(item => {
     const defaults = seedById.get(item.id);
-    return defaults
-      ? {...defaults, ...item, unlocks: item.unlocks?.length ? item.unlocks : defaults.unlocks}
-      : item;
+    return defaults ? {...defaults, ...item} : item;
   });
   for (const item of seed) {
     if (!merged.some(row => row.id === item.id)) {
@@ -167,13 +133,12 @@ function mergeLeads(stored?: MarketplaceLead[]): MarketplaceLead[] {
   return merged;
 }
 
-function mergeConversations(stored?: Conversation[]): Conversation[] {
-  const seed = structuredClone(seedConversations);
+function mergeLegalDocuments(stored?: LegalDocument[]): LegalDocument[] {
+  const seed = structuredClone(seedLegalDocuments);
   if (!stored?.length) {
     return seed;
   }
-  const byId = new Map(stored.map(item => [item.id, item]));
-  return seed.map(item => byId.get(item.id) ?? item);
+  return stored;
 }
 
 function mergeSupportTickets(stored?: SupportTicket[]): SupportTicket[] {
@@ -181,21 +146,15 @@ function mergeSupportTickets(stored?: SupportTicket[]): SupportTicket[] {
   if (!stored?.length) {
     return seed;
   }
-  const byId = new Map(stored.map(item => [item.id, item]));
-  return seed.map(item => byId.get(item.id) ?? item);
+  return stored;
 }
 
-function mergeLegalDocuments(stored?: LegalDocument[]): LegalDocument[] {
-  const seed = structuredClone(seedLegalDocuments);
+function mergeConversations(stored?: Conversation[]): Conversation[] {
+  const seed = structuredClone(seedConversations);
   if (!stored?.length) {
     return seed;
   }
-  const key = (doc: LegalDocument) => `${doc.id}:${doc.lang}`;
-  const byKey = new Map(stored.map(item => [key(item), item]));
-  return seed.map(item => {
-    const saved = byKey.get(key(item));
-    return saved ? {...item, ...saved, sections: saved.sections?.length ? saved.sections : item.sections} : item;
-  });
+  return stored;
 }
 
 function mergeQuoteRequests(stored?: QuoteRequest[]): QuoteRequest[] {
@@ -220,7 +179,6 @@ function mergeState(stored: Partial<MockState> | null): MockState {
   return {
     lookups: stored?.lookups?.length ? stored.lookups : structuredClone(seedLookups),
     settings: stored?.settings ?? structuredClone(seedSettings),
-    services: mergeServices(stored?.services),
     professionals: mergeProfessionals(stored?.professionals),
     clients: mergeClients(stored?.clients),
     leads: mergeLeads(stored?.leads),
@@ -238,7 +196,6 @@ export function getMockState(): MockState {
   const next = mergeState(readStorage());
   memory.lookups = next.lookups;
   memory.settings = next.settings;
-  memory.services = next.services;
   memory.professionals = next.professionals;
   memory.clients = next.clients;
   memory.leads = next.leads;
@@ -255,7 +212,6 @@ export function setMockState(patch: Partial<MockState>) {
   persist({
     lookups: patch.lookups ?? current.lookups,
     settings: patch.settings ?? current.settings,
-    services: patch.services ?? current.services,
     professionals: patch.professionals ?? current.professionals,
     clients: patch.clients ?? current.clients,
     leads: patch.leads ?? current.leads,
@@ -266,4 +222,3 @@ export function setMockState(patch: Partial<MockState>) {
     conversations: patch.conversations ?? current.conversations,
   });
 }
-

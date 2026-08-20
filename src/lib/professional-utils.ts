@@ -3,7 +3,7 @@ import type {Professional, ProfessionalSummary, VerificationQueueItem} from '@/a
 export function profileCompletion(pro: Professional): number {
   const checks = [
     Boolean(pro.name && pro.email),
-    pro.serviceSlugs.length > 0,
+    pro.serviceIds.length > 0,
     pro.locations.length > 0,
     pro.certificationFiles.length > 0,
     pro.insuranceFiles.length > 0,
@@ -21,7 +21,7 @@ export function toProfessionalSummary(pro: Professional): ProfessionalSummary {
     phone: pro.phone,
     specialty: pro.specialty,
     location: pro.location,
-    serviceCount: pro.serviceSlugs.length,
+    serviceCount: pro.serviceIds.length,
     verification: pro.verification,
     credits: pro.credits,
     activated: pro.activated,
@@ -41,7 +41,7 @@ export function toVerificationQueueItem(pro: Professional): VerificationQueueIte
     submittedAt: pro.verificationSubmittedAt ?? pro.createdAt,
     certificationFiles: pro.certificationFiles,
     insuranceFiles: pro.insuranceFiles,
-    serviceSlugs: pro.serviceSlugs,
+    serviceIds: pro.serviceIds,
     profileCompletion: profileCompletion(pro),
     profileCertifications: pro.profileCertifications,
   };

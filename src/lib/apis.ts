@@ -1,11 +1,14 @@
 import {request} from '@/lib/request';
 import type {
+  CatalogService,
   CreditPackage,
   CreateCreditPackageInput,
   CreatePromoInput,
+  CreateServiceInput,
   PromoCode,
   UpdateCreditPackageInput,
   UpdatePromoInput,
+  UpdateServiceInput,
 } from '@/api/types';
 
 // ── Credit Packages ───────────────────────────────────────────────────────────
@@ -43,6 +46,26 @@ export function createPromoCode(input: CreatePromoInput) {
 
 export function updatePromoCode(id: number, input: UpdatePromoInput) {
   return request<PromoCode>(`/v1/promo-codes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+// ── Services ──────────────────────────────────────────────────────────────────
+
+export function listServices() {
+  return request<CatalogService[]>('/v1/services');
+}
+
+export function createService(input: CreateServiceInput) {
+  return request<CatalogService>('/v1/services', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateService(id: number, input: UpdateServiceInput) {
+  return request<CatalogService>(`/v1/services/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });

@@ -155,6 +155,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
 }
 
 export {createPromoCode, listPromoCodes, updatePromoCode} from '@/lib/apis';
+export {createService, listServices, updateService} from '@/lib/apis';
 
 export function adjustCredits(input: AdjustCreditsInput) {
   return request<Professional>(`/admin/credit-adjustments`, {
@@ -194,31 +195,6 @@ export function updateLookupOption(
   return request<LookupOption>(`/admin/lookups/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
-  });
-}
-
-export function listServices() {
-  return request<CatalogService[]>('/admin/services');
-}
-
-export function createService(input: CreateServiceInput) {
-  return request<CatalogService>('/admin/services', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
-}
-
-export function updateService(id: string, input: UpdateServiceInput) {
-  return request<CatalogService>(`/admin/services/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
-}
-
-export function reorderServices(ids: string[]) {
-  return request<CatalogService[]>('/admin/services/reorder', {
-    method: 'POST',
-    body: JSON.stringify({ids}),
   });
 }
 

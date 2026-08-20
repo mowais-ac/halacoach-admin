@@ -6,7 +6,7 @@ export function toLeadSummary(lead: MarketplaceLead, client?: Client): LeadSumma
     clientId: lead.clientId,
     clientName: client?.name ?? 'Unknown client',
     goal: lead.goal,
-    serviceSlug: lead.serviceSlug,
+    serviceId: lead.serviceId,
     location: lead.location,
     matchScore: lead.matchScore,
     creditCost: lead.creditCost,
