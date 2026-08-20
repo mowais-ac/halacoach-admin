@@ -577,6 +577,11 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
               ? ['20%', '9%', '13%', '13%', '11%', '10%', '24%']
               : ['22%', '10%', '14%', '14%', '14%', '12%']
           }
+          columnHeaderClassNames={
+            canWrite
+              ? [undefined, undefined, undefined, undefined, undefined, undefined, 'text-right']
+              : undefined
+          }
           columns={
             canWrite
               ? ['Name', 'Credits', 'Price (excl. VAT)', 'Badge', 'Incl. VAT', 'Status', 'Actions']
