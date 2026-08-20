@@ -5,12 +5,12 @@ import {
   inviteAdmin,
   isApiError,
   listAdmins,
-  roleLabels,
   updateAdmin,
   type AdminRole,
   type AdminUser,
   type SessionUser,
 } from '@/api';
+import {roleLabels} from '@/lib/helpers';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';

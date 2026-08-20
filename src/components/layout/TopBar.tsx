@@ -2,7 +2,8 @@
 
 import {useRouter} from 'next/navigation';
 import {LogOut} from 'lucide-react';
-import {roleLabels, type AdminRole} from '@/api';
+import type {AdminRole} from '@/api';
+import {roleLabels} from '@/lib/helpers';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {clearSessionCookie} from '@/lib/session';

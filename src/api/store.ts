@@ -1,4 +1,4 @@
-import type {AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
+import type {CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
 import {seedConversations} from './messages-seed';
 import {seedSupportTickets} from './support-seed';
 import {seedLegalDocuments} from './content-seed';
@@ -267,8 +267,3 @@ export function setMockState(patch: Partial<MockState>) {
   });
 }
 
-export const roleLabels: Record<AdminRole, string> = {
-  super: 'Super admin',
-  reviewer: 'Reviewer',
-  support: 'Support',
-};

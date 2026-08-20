@@ -110,7 +110,6 @@ export type {
   VerificationQueueItem,
 } from './types';
 export {ApiError, isApiError} from './errors';
-export {roleLabels} from './store';
 
 export function getHealth() {
   return request<HealthResponse>('/health');
