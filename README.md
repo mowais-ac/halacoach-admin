@@ -57,9 +57,8 @@ Role-based nav: reviewers see verification + professionals; support sees clients
 
 When `halacoach-apis` is ready:
 
-1. Set `NEXT_PUBLIC_API_URL` to the API base (e.g. `https://api.example.com/api/v1`)
-2. Set `NEXT_PUBLIC_USE_MOCKS=false`
-3. Implement routes in [API_CONTRACT.md](./API_CONTRACT.md) — admin UI stays unchanged
+1. Set `NEXT_PUBLIC_API_BASE_URL` to the admin API base (e.g. `https://api.example.com/api/admin`)
+2. Implement routes in [API_CONTRACT.md](./API_CONTRACT.md) — admin UI stays unchanged
 
 ## Project layout
 

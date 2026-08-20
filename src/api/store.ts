@@ -308,18 +308,6 @@ export function setMockState(patch: Partial<MockState>) {
   });
 }
 
-export function publicAdmin(record: AdminRecord) {
-  return {
-    id: record.id,
-    name: record.name,
-    email: record.email,
-    role: record.role,
-    active: record.active,
-    lastLogin: record.lastLogin,
-    createdAt: record.createdAt,
-  };
-}
-
 export const roleLabels: Record<AdminRole, string> = {
   super: 'Super admin',
   reviewer: 'Reviewer',

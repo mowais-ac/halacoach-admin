@@ -10,8 +10,7 @@ Until the real API exists, the admin app uses an in-memory mock (`src/api/mock.t
 
 | Env var | Purpose |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | API origin, e.g. `https://api.halacoach.com/api/v1` |
-| `NEXT_PUBLIC_USE_MOCKS` | `false` to use real HTTP; default `true` |
+| `NEXT_PUBLIC_API_BASE_URL` | Admin API origin, e.g. `https://api.halacoach.com/api/admin` |
 
 Session cookie (client): `hc_admin_session` — JSON `{ id, name, email, role }`.
 
@@ -49,7 +48,7 @@ Session cookie (client): `hc_admin_session` — JSON `{ id, name, email, role }`
 
 ## Auth (M1)
 
-### `POST /admin/auth/login`
+### `POST /v1/auth/login`
 
 **Body**
 
@@ -117,15 +116,15 @@ Sign-out is client-only (clears session cookie). No logout endpoint required for
 
 ## Admin users (M1)
 
-### `GET /admin/admins`
+### `GET /v1/admins`
 
 List operators. **Super only.**
 
-### `POST /admin/admins`
+### `POST /v1/admins`
 
 Invite admin. **Body:** `{ name, email, role, password }` · **Super only.**
 
-### `PATCH /admin/admins/:id`
+### `PATCH /v1/admins/:id`
 
 **Body:** `{ name?, role?, active?, actorId }` — cannot disable self or last active super.
 
@@ -358,7 +357,7 @@ TypeScript source of truth: `src/api/types.ts`, `src/api/lookups.ts`.
 2. Mount routes above under `/api/v1/admin/*`.
 3. Replace plain-text errors with consistent JSON: `{ "message": "..." }`.
 4. Add JWT or session middleware; validate role per route.
-5. Set `NEXT_PUBLIC_API_URL` + `NEXT_PUBLIC_USE_MOCKS=false` on admin deploy.
+5. Set `NEXT_PUBLIC_API_BASE_URL` on admin deploy.
 6. Keep response shapes identical — admin screens should not change.
 
 ---
@@ -368,7 +367,7 @@ TypeScript source of truth: `src/api/types.ts`, `src/api/lookups.ts`.
 | Module | Routes prefix | UI path |
 |---|---|---|
 | M0 Foundation | — | shell, shared UI |
-| M1 Auth | `/admin/auth`, `/admin/admins` | `/login`, `/admins` |
+| M1 Auth | `/v1/auth`, `/v1/admins` | `/login`, `/admins` |
 | M2 Settings | `/admin/settings`, `/admin/lookups` | `/settings` |
 | M3 Services | `/admin/services` | `/services` |
 | M4 Professionals | `/admin/professionals` | `/professionals` |

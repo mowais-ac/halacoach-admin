@@ -1,7 +1,7 @@
 import {ApiError} from './errors';
 import {lookupGroups} from './lookups-seed';
 import type {AppSettings, LookupGroupId, LookupOption} from './lookups';
-import {getMockState, publicAdmin, setMockState} from './store';
+import {getMockState, setMockState} from './store';
 import {buildCreditsOverview} from '@/lib/credit-utils';
 import {findLegalDocument, toLegalSummaries} from '@/lib/content-utils';
 import {buildDashboardOverview} from '@/lib/dashboard-utils';
@@ -12,19 +12,14 @@ import {toLeadDetail, toLeadSummary} from '@/lib/lead-utils';
 import {toProfessionalSummary, toVerificationQueueItem} from '@/lib/professional-utils';
 import {toQuoteRequestDetail, toQuoteRequestSummary} from '@/lib/request-utils';
 import type {
-  AdminRecord,
   CatalogService,
   Client,
   CreateServiceInput,
   HealthResponse,
-  InviteAdminInput,
-  LoginInput,
   MarketplaceLead,
   Professional,
   QuoteRequest,
   RejectVerificationInput,
-  SessionResponse,
-  UpdateAdminInput,
   UpdateClientInput,
   UpdateLeadInput,
   UpdateProfessionalInput,
@@ -47,10 +42,6 @@ function parseBody<T>(init?: RequestInit): T {
   return JSON.parse(String(init.body)) as T;
 }
 
-function activeSupers(admins: AdminRecord[]) {
-  return admins.filter(admin => admin.role === 'super' && admin.active);
-}
-
 /**
  * In-memory handlers that mirror future `/api/v1/admin/*` routes.
  */
@@ -71,79 +62,6 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
     } satisfies HealthResponse as T;
   }
 
-  if (path === '/admin/auth/login' && method === 'POST') {
-    const {email, password} = parseBody<LoginInput>(init);
-    const match = state.admins.find(
-      admin => admin.email.toLowerCase() === email.trim().toLowerCase(),
-    );
-    if (!match || match.password !== password) {
-      throw new ApiError(401, 'Wrong email or password.');
-    }
-    if (!match.active) {
-      throw new ApiError(403, 'This admin account is disabled.');
-    }
-    match.lastLogin = new Date().toISOString();
-    setMockState({admins: [...state.admins]});
-    return {user: publicAdmin(match)} satisfies SessionResponse as T;
-  }
-
-  if (path === '/admin/admins' && method === 'GET') {
-    return state.admins.map(publicAdmin) as T;
-  }
-
-  if (path === '/admin/admins' && method === 'POST') {
-    const input = parseBody<InviteAdminInput>(init);
-    if (!input.name?.trim() || !input.email?.trim() || !input.password) {
-      throw new ApiError(400, 'Name, email, and password are required.');
-    }
-    if (input.password.length < 8) {
-      throw new ApiError(400, 'Password must be at least 8 characters.');
-    }
-    const email = input.email.trim().toLowerCase();
-    if (state.admins.some(admin => admin.email.toLowerCase() === email)) {
-      throw new ApiError(409, 'An admin with that email already exists.');
-    }
-    const record: AdminRecord = {
-      id: `admin-${Date.now()}`,
-      name: input.name.trim(),
-      email,
-      password: input.password,
-      role: input.role,
-      active: true,
-      lastLogin: null,
-      createdAt: new Date().toISOString(),
-    };
-    setMockState({admins: [record, ...state.admins]});
-    return publicAdmin(record) as T;
-  }
-
-  const adminMatch = path.match(/^\/admin\/admins\/([^/]+)$/);
-  if (adminMatch && method === 'PATCH') {
-    const id = adminMatch[1];
-    const input = parseBody<UpdateAdminInput & {actorId?: string}>(init);
-    const admins = [...state.admins];
-    const index = admins.findIndex(admin => admin.id === id);
-    if (index < 0) {
-      throw new ApiError(404, 'Admin not found.');
-    }
-    const current = admins[index]!;
-    if (input.actorId === id && input.active === false) {
-      throw new ApiError(400, 'You cannot disable your own account.');
-    }
-    const next: AdminRecord = {
-      ...current,
-      name: input.name?.trim() || current.name,
-      role: input.role ?? current.role,
-      active: input.active ?? current.active,
-    };
-    const nextList = admins.map((admin, i) => (i === index ? next : admin));
-    if (activeSupers(nextList).length === 0) {
-      throw new ApiError(400, 'Keep at least one active super admin.');
-    }
-    setMockState({admins: nextList});
-    return publicAdmin(next) as T;
-  }
-
   if (path === '/admin/credits-meta' && method === 'GET') {
     const overview = buildCreditsOverview({
       settings: state.settings,
@@ -152,8 +70,11 @@ export async function mockRequest<T>(path: string, init?: RequestInit): Promise<
       professionals: state.professionals,
       purchases: state.creditPurchases,
     });
-    const {packs: _packs, promos: _promos, ...rest} = overview;
-    return rest as T;
+    return {
+      vatRate: overview.vatRate,
+      transactions: overview.transactions,
+      stats: overview.stats,
+    } as T;
   }
 
   if (path === '/admin/credit-adjustments' && method === 'POST') {

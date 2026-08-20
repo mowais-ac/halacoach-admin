@@ -24,6 +24,31 @@ export function writeSessionCookie(user: SessionUser) {
   document.cookie = `${config.sessionCookie}=${encodeSession(user)}; path=/; SameSite=Lax`;
 }
 
+export function writeApiTokenCookie(token: string) {
+  document.cookie = `${config.apiTokenCookie}=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+}
+
+export function getApiToken(): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const prefix = `${config.apiTokenCookie}=`;
+  const match = document.cookie
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith(prefix));
+  if (!match) {
+    return null;
+  }
+  const value = match.slice(prefix.length);
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export function clearSessionCookie() {
   document.cookie = `${config.sessionCookie}=; path=/; max-age=0`;
+  document.cookie = `${config.apiTokenCookie}=; path=/; max-age=0`;
 }

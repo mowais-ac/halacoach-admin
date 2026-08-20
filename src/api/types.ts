@@ -25,6 +25,7 @@ export type HealthResponse = {
 
 export type SessionResponse = {
   user: SessionUser;
+  token?: string;
 };
 
 export type LoginInput = {

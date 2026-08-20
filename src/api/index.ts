@@ -121,25 +121,25 @@ export function getDashboardOverview() {
 }
 
 export function login(email: string, password: string) {
-  return request<SessionResponse>('/admin/auth/login', {
+  return request<SessionResponse>('/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify({email, password}),
   });
 }
 
 export function listAdmins() {
-  return request<AdminUser[]>('/admin/admins');
+  return request<AdminUser[]>('/v1/admins');
 }
 
 export function inviteAdmin(input: InviteAdminInput) {
-  return request<AdminUser>('/admin/admins', {
+  return request<AdminUser>('/v1/admins', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function updateAdmin(id: string, input: UpdateAdminInput & {actorId: string}) {
-  return request<AdminUser>(`/admin/admins/${id}`, {
+  return request<AdminUser>(`/v1/admins/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });

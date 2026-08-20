@@ -5,7 +5,7 @@ import {useRouter} from 'next/navigation';
 import {isApiError, login} from '@/api';
 import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
-import {writeSessionCookie} from '@/lib/session';
+import {writeApiTokenCookie, writeSessionCookie} from '@/lib/session';
 
 const demos = [
   {role: 'Super admin', email: 'admin@halacoach.local', password: 'Admin123!'},
@@ -25,8 +25,11 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const {user} = await login(email, password);
+      const {user, token} = await login(email, password);
       writeSessionCookie(user);
+      if (token) {
+        writeApiTokenCookie(token);
+      }
       router.replace('/');
       router.refresh();
     } catch (err) {
@@ -42,7 +45,7 @@ export default function LoginPage() {
         <p className="text-2xl font-bold text-primary">HalaCoach</p>
         <h1 className="mt-2 text-xl font-semibold text-foreground">Sign in to admin</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Mock accounts for M1. Wrong passwords are rejected.
+          Sign in with your admin account. Demo credentials below work when the API is seeded.
         </p>
 
         <form className="mt-8 space-y-4" onSubmit={e => void onSubmit(e)}>
