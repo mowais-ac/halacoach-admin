@@ -1,18 +1,13 @@
 export type AdminRole = 'super' | 'reviewer' | 'support';
 
 export type AdminUser = {
-  id: string;
+  id: number;
   name: string;
   email: string;
   role: AdminRole;
   active: boolean;
   lastLogin: string | null;
   createdAt: string;
-};
-
-export type AdminRecord = AdminUser & {
-  /** Mock-only. APIs will store a password hash. */
-  password: string;
 };
 
 export type SessionUser = Pick<AdminUser, 'id' | 'name' | 'email' | 'role'>;
@@ -49,7 +44,7 @@ export type UpdateAdminInput = {
 export type CreditPackageBadge = 'popular' | 'value';
 
 export type CreditPackage = {
-  id: string;
+  id: number;
   name: string;
   credits: number;
   price: number;
@@ -76,7 +71,7 @@ export type UpdateCreditPackageInput = {
 export type PromoBenefitType = 'percent_off' | 'fixed_off' | 'bonus_credits';
 
 export type PromoCode = {
-  id: string;
+  id: number;
   code: string;
   benefitType: PromoBenefitType;
   benefitValue: number;

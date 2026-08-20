@@ -194,19 +194,19 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     isLoading: true,
     error: null,
   });
-  const [creditPackageDrafts, setCreditPackageDrafts] = useState<Record<string, CreditPackageDraft>>({});
+  const [creditPackageDrafts, setCreditPackageDrafts] = useState<Record<number, CreditPackageDraft>>({});
   const [creditPackageForm, setCreditPackageForm] = useState<CreditPackageDraft>(emptyCreditPackageForm);
   const [creditPackageError, setCreditPackageError] = useState<string | null>(null);
-  const [savingCreditPackage, setSavingCreditPackage] = useState<string | null>(null);
+  const [savingCreditPackage, setSavingCreditPackage] = useState<number | null>(null);
   const [creatingCreditPackage, setCreatingCreditPackage] = useState(false);
-  const [editingCreditPackageId, setEditingCreditPackageId] = useState<string | null>(null);
+  const [editingCreditPackageId, setEditingCreditPackageId] = useState<number | null>(null);
   const [txnFilter, setTxnFilter] = useState<TxnFilter>('all');
-  const [promoDrafts, setPromoDrafts] = useState<Record<string, PromoDraft>>({});
+  const [promoDrafts, setPromoDrafts] = useState<Record<number, PromoDraft>>({});
   const [promoForm, setPromoForm] = useState<PromoDraft>(emptyPromoForm);
   const [promoError, setPromoError] = useState<string | null>(null);
-  const [savingPromo, setSavingPromo] = useState<string | null>(null);
+  const [savingPromo, setSavingPromo] = useState<number | null>(null);
   const [creatingPromo, setCreatingPromo] = useState(false);
-  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
+  const [editingPromoId, setEditingPromoId] = useState<number | null>(null);
   const [adjustForm, setAdjustForm] = useState({
     professionalId: '',
     credits: '',
@@ -286,7 +286,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     return overview.transactions.filter(item => item.type === txnFilter);
   }, [overview, txnFilter]);
 
-  const saveCreditPackage = async (packId: string) => {
+  const saveCreditPackage = async (packId: number) => {
     const draft = creditPackageDrafts[packId];
     const credits = Number(draft?.credits);
     const price = Number(draft?.price);
@@ -395,7 +395,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     setEditingCreditPackageId(current => (current === pack.id ? null : current));
   };
 
-  const toggleCreditPackage = async (packId: string, active: boolean) => {
+  const toggleCreditPackage = async (packId: number, active: boolean) => {
     try {
       await updateCreditPackage(packId, {active});
       setEditingCreditPackageId(current => (current === packId ? null : current));
@@ -405,7 +405,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  const togglePromo = async (id: string, active: boolean) => {
+  const togglePromo = async (id: number, active: boolean) => {
     try {
       await updatePromoCode(id, {active});
       setEditingPromoId(current => (current === id ? null : current));
@@ -415,7 +415,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     }
   };
 
-  const savePromo = async (promoId: string) => {
+  const savePromo = async (promoId: number) => {
     const draft = promoDrafts[promoId];
     if (!draft) {
       return;

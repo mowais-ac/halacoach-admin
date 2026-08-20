@@ -21,7 +21,7 @@ export function createCreditPackage(input: CreateCreditPackageInput) {
   });
 }
 
-export function updateCreditPackage(id: string, input: UpdateCreditPackageInput) {
+export function updateCreditPackage(id: number, input: UpdateCreditPackageInput) {
   return request<CreditPackage>(`/v1/credit-packages/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -41,7 +41,7 @@ export function createPromoCode(input: CreatePromoInput) {
   });
 }
 
-export function updatePromoCode(id: string, input: UpdatePromoInput) {
+export function updatePromoCode(id: number, input: UpdatePromoInput) {
   return request<PromoCode>(`/v1/promo-codes/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),

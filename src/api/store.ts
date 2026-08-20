@@ -1,4 +1,4 @@
-import type {AdminRecord, AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
+import type {AdminRole, CatalogService, Client, Conversation, CreditPurchase, LegalDocument, MarketplaceLead, Professional, QuoteRequest, SupportTicket} from './types';
 import {seedConversations} from './messages-seed';
 import {seedSupportTickets} from './support-seed';
 import {seedLegalDocuments} from './content-seed';
@@ -14,43 +14,7 @@ import {normalizeNotificationPrefs} from '@/lib/notification-utils';
 
 const STORAGE_KEY = 'hc_admin_mock_v1';
 
-const now = '2026-08-18T00:00:00.000Z';
-
-export const seedAdmins: AdminRecord[] = [
-  {
-    id: 'admin-super',
-    name: 'HalaCoach Admin',
-    email: 'admin@halacoach.local',
-    password: 'Admin123!',
-    role: 'super',
-    active: true,
-    lastLogin: null,
-    createdAt: now,
-  },
-  {
-    id: 'admin-reviewer',
-    name: 'Noura Reviewer',
-    email: 'reviewer@halacoach.local',
-    password: 'Review123!',
-    role: 'reviewer',
-    active: true,
-    lastLogin: null,
-    createdAt: now,
-  },
-  {
-    id: 'admin-support',
-    name: 'Omar Support',
-    email: 'support@halacoach.local',
-    password: 'Support123!',
-    role: 'support',
-    active: true,
-    lastLogin: null,
-    createdAt: now,
-  },
-];
-
 export type MockState = {
-  admins: AdminRecord[];
   lookups: LookupOption[];
   settings: AppSettings;
   services: CatalogService[];
@@ -65,7 +29,6 @@ export type MockState = {
 };
 
 const memory: MockState = {
-  admins: structuredClone(seedAdmins),
   lookups: structuredClone(seedLookups),
   settings: structuredClone(seedSettings),
   services: structuredClone(seedServices),
@@ -95,7 +58,6 @@ function readStorage(): Partial<MockState> | null {
 }
 
 function persist(state: MockState) {
-  memory.admins = state.admins;
   memory.lookups = state.lookups;
   memory.settings = state.settings;
   memory.services = state.services;
@@ -256,7 +218,6 @@ function mergeQuoteRequests(stored?: QuoteRequest[]): QuoteRequest[] {
 
 function mergeState(stored: Partial<MockState> | null): MockState {
   return {
-    admins: stored?.admins?.length ? stored.admins : structuredClone(seedAdmins),
     lookups: stored?.lookups?.length ? stored.lookups : structuredClone(seedLookups),
     settings: stored?.settings ?? structuredClone(seedSettings),
     services: mergeServices(stored?.services),
@@ -275,7 +236,6 @@ function mergeState(stored: Partial<MockState> | null): MockState {
 
 export function getMockState(): MockState {
   const next = mergeState(readStorage());
-  memory.admins = next.admins;
   memory.lookups = next.lookups;
   memory.settings = next.settings;
   memory.services = next.services;
@@ -293,7 +253,6 @@ export function getMockState(): MockState {
 export function setMockState(patch: Partial<MockState>) {
   const current = getMockState();
   persist({
-    admins: patch.admins ?? current.admins,
     lookups: patch.lookups ?? current.lookups,
     settings: patch.settings ?? current.settings,
     services: patch.services ?? current.services,

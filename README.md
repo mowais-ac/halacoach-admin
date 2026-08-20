@@ -28,8 +28,6 @@ npm run dev:reset
 | Role | Email | Password |
 |---|---|---|
 | Super admin | `admin@halacoach.local` | `Admin123!` |
-| Reviewer | `reviewer@halacoach.local` | `Review123!` |
-| Support | `support@halacoach.local` | `Support123!` |
 
 Role-based nav: reviewers see verification + professionals; support sees clients, credits, support inbox, and messages (read-only).
 

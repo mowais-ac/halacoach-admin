@@ -138,7 +138,7 @@ export function inviteAdmin(input: InviteAdminInput) {
   });
 }
 
-export function updateAdmin(id: string, input: UpdateAdminInput & {actorId: string}) {
+export function updateAdmin(id: number, input: UpdateAdminInput & {actorId: number}) {
   return request<AdminUser>(`/v1/admins/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),

@@ -9,8 +9,6 @@ import {writeApiTokenCookie, writeSessionCookie} from '@/lib/session';
 
 const demos = [
   {role: 'Super admin', email: 'admin@halacoach.local', password: 'Admin123!'},
-  {role: 'Reviewer', email: 'reviewer@halacoach.local', password: 'Review123!'},
-  {role: 'Support', email: 'support@halacoach.local', password: 'Support123!'},
 ];
 
 export default function LoginPage() {
