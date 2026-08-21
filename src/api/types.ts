@@ -176,6 +176,16 @@ export type ProPricing = {
   notes: string;
 };
 
+export type LeadPrefs = {
+  goals: string[];
+  clientGender: string[];
+  ages: string[];
+  days: string[];
+  times: string[];
+  languages: string[];
+  formats: string[];
+};
+
 export type Professional = {
   id: string;
   name: string;
@@ -194,6 +204,8 @@ export type Professional = {
   verificationRejectedReason: string | null;
   activated: boolean;
   pricing: ProPricing;
+  leadPrefs: LeadPrefs;
+  bio: string;
   credits: number;
   txns: ProfessionalTxn[];
   specialty: string;

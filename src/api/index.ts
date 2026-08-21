@@ -87,6 +87,7 @@ export type {
   ProfessionalTxn,
   ProPricing,
   ProServiceRate,
+  LeadPrefs,
   PromoCode,
   QuoteRequestDetail,
   QuoteRequestStatus,
