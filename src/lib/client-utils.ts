@@ -32,9 +32,10 @@ function labelsFor(lookups: LookupOption[], groupId: string, values: string[]) {
   return values.map(value => labelFor(lookups, groupId, value)).join(', ');
 }
 
+/** Steps aligned with live mobile MatchScreen onboarding (14 steps). */
 export function clientAnswerRows(client: Client, lookups: LookupOption[]): AnswerRow[] {
   const answers = client.answers;
-  const rows: AnswerRow[] = [
+  return [
     {step: 1, label: 'Goals', value: labelsFor(lookups, 'goals', answers.goal) || '—'},
     {
       step: 2,
@@ -48,72 +49,71 @@ export function clientAnswerRows(client: Client, lookups: LookupOption[]): Answe
       label: 'Frequency',
       value: answers.frequency ? labelFor(lookups, 'frequency', answers.frequency) : '—',
     },
+    {step: 4, label: 'Preferred days', value: labelsFor(lookups, 'days', answers.days) || '—'},
     {
-      step: 4,
-      label: 'When to start',
-      value: answers.startTraining
-        ? labelFor(lookups, 'startTraining', answers.startTraining)
-        : '—',
-    },
-    {step: 5, label: 'Preferred days', value: labelsFor(lookups, 'days', answers.days) || '—'},
-    {
-      step: 6,
+      step: 5,
       label: 'Preferred times',
       value:
-        labelsFor(lookups, 'times', answers.times) +
+        (labelsFor(lookups, 'times', answers.times) || '—') +
         (answers.timesOther ? ` (${answers.timesOther})` : ''),
     },
     {
-      step: 7,
+      step: 6,
       label: 'Current routine',
       value:
         (answers.routine ? labelFor(lookups, 'routine', answers.routine) : '—') +
         (answers.routineOther ? ` (${answers.routineOther})` : ''),
     },
     {
-      step: 8,
+      step: 7,
       label: 'Coach gender preference',
       value: answers.coachGender ? labelFor(lookups, 'coachGender', answers.coachGender) : '—',
     },
     {
-      step: 9,
+      step: 8,
       label: 'Coaching style',
       value: answers.style ? labelFor(lookups, 'coachingStyle', answers.style) : '—',
     },
     {
-      step: 10,
+      step: 9,
       label: 'Personal details',
       value: [
         answers.gender ? labelFor(lookups, 'clientGender', answers.gender) : null,
         answers.age ? labelFor(lookups, 'age', answers.age) : null,
-        answers.ethnicity ? labelFor(lookups, 'ethnicity', answers.ethnicity) : null,
+        answers.gymAccess ? labelFor(lookups, 'gymAccess', answers.gymAccess) : null,
       ]
         .filter(Boolean)
         .join(' · ') || '—',
     },
     {
+      step: 10,
+      label: 'Languages',
+      value: labelsFor(lookups, 'languages', answers.languages) || '—',
+    },
+    {
       step: 11,
-      label: 'Gym access',
-      value: answers.gymAccess ? labelFor(lookups, 'gymAccess', answers.gymAccess) : '—',
+      label: 'Ethnicity',
+      value: answers.ethnicity ? labelFor(lookups, 'ethnicity', answers.ethnicity) : '—',
     },
     {
       step: 12,
-      label: 'Languages',
-      value: labelsFor(lookups, 'languages', answers.languages) || '—',
+      label: 'When to start',
+      value: answers.startTraining
+        ? labelFor(lookups, 'startTraining', answers.startTraining)
+        : '—',
     },
     {step: 13, label: 'Location', value: answers.location ?? '—'},
     {
       step: 14,
-      label: 'Contact',
+      label: 'Account',
       value: [answers.email, answers.phone].filter(Boolean).join(' · ') || '—',
     },
   ];
-  return rows;
 }
 
 export const consentLabels = {
-  terms: 'Terms & Conditions',
+  terms: 'Terms of Service',
   privacy: 'Privacy Policy',
-  independent: 'Independent professionals',
+  independent: 'Independent professionals / coach agreement',
   contact: 'Contact by matching coaches',
 } as const;

@@ -99,7 +99,7 @@ const activityPermission: Record<DashboardOverview['recentActivity'][number]['ki
 export function DashboardScreen({actor}: {actor: SessionUser}) {
   const pathname = usePathname();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
-  const [apiSource, setApiSource] = useState<'mock' | 'api' | null>(null);
+  const [apiSource, setApiSource] = useState<'api' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,9 +167,9 @@ export function DashboardScreen({actor}: {actor: SessionUser}) {
       ) : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <Badge tone="primary">API {apiSource ?? 'mock'}</Badge>
+        <Badge tone="primary">API {apiSource ?? '…'}</Badge>
         <span className="text-sm text-muted-foreground">
-          Live counts from mock state across verification, leads, credits, and support.
+          Live counts from the API across verification, leads, credits, and support.
         </span>
       </div>
 

@@ -1,5 +1,10 @@
 import type {ContentLang, LegalDocId, LegalDocument, LegalDocumentSummary} from '@/api/types';
-import {legalDocLabels} from '@/api/content-seed';
+
+const legalDocLabels: Record<LegalDocId, string> = {
+  terms: 'Terms of Service',
+  privacy: 'Privacy Policy',
+  professional: 'Professional Agreement',
+};
 
 export function docKey(id: LegalDocId, lang: ContentLang) {
   return `${id}:${lang}`;

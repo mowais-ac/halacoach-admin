@@ -138,12 +138,6 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
     return <ErrorState body={error ?? 'Client not found.'} onRetry={() => void load()} />;
   }
 
-  const consentsComplete =
-    client.consents.terms &&
-    client.consents.privacy &&
-    client.consents.independent &&
-    client.consents.contact;
-
   return (
     <>
       <div className="mb-4">
@@ -158,7 +152,7 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
       <PageHeader
         module="M6"
         title={client.name}
-        description={`${client.email} · ${client.answers.location ?? 'No location'}`}
+        description={`${client.email} · ${client.answers.location ?? 'No location'} · mobile register + questionnaire`}
         actions={
           canWrite ? (
             <div className="flex flex-wrap gap-2">
@@ -181,15 +175,10 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
         ) : (
           <Badge tone="warning">Onboarding incomplete</Badge>
         )}
-        {client.otpVerified ? (
-          <Badge tone="primary">OTP verified</Badge>
+        {client.onboarded ? (
+          <Badge tone="primary">Signup consent accepted</Badge>
         ) : (
-          <Badge tone="warning">OTP pending</Badge>
-        )}
-        {consentsComplete ? (
-          <Badge tone="primary">Consents accepted</Badge>
-        ) : (
-          <Badge tone="muted">Consents incomplete</Badge>
+          <Badge tone="muted">Consent pending</Badge>
         )}
         {client.suspended ? <Badge tone="danger">Suspended</Badge> : null}
       </div>
@@ -225,25 +214,35 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
           ) : null}
         </Section>
 
-        <Section title="OTP verification">
-          {client.otpVerified ? (
+        <Section title="Signup">
+          {client.onboarded ? (
             <>
-              <Badge tone="primary">Phone verified</Badge>
+              <Badge tone="primary">Registered via mobile onboarding</Badge>
               <p className="mt-2 text-sm text-muted-foreground">
-                Verified {client.otpVerifiedAt ? new Date(client.otpVerifiedAt).toLocaleString() : '—'}
+                Account and questionnaire saved together (`register` + `data`). Phone OTP is
+                deferred in the current app build.
               </p>
+              {client.consents.acceptedAt ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Consent accepted {new Date(client.consents.acceptedAt).toLocaleString()}
+                </p>
+              ) : null}
             </>
           ) : (
             <>
-              <Badge tone="warning">Awaiting verification</Badge>
+              <Badge tone="warning">Incomplete</Badge>
               <p className="mt-2 text-sm text-muted-foreground">
-                Client stopped before entering the OTP sent to {client.phone}.
+                This user exists in the database but never finished signup. The mobile app no longer
+                resumes incomplete accounts — delete or ignore for local testing.
               </p>
             </>
           )}
         </Section>
 
-        <Section title="Consents">
+        <Section title="Consents (at signup)">
+          <p className="mb-3 text-sm text-muted-foreground">
+            The app uses one consent covering terms, privacy, and the coach agreement.
+          </p>
           <ul className="space-y-2 text-sm">
             {(Object.keys(consentLabels) as Array<keyof typeof consentLabels>).map(key => (
               <li key={key} className="flex items-center justify-between gap-3">
@@ -256,11 +255,6 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-muted-foreground">
-            {client.consents.acceptedAt
-              ? `All accepted ${new Date(client.consents.acceptedAt).toLocaleString()}`
-              : 'Consent step not completed.'}
-          </p>
         </Section>
 
         <Section title="Saved coaches">
@@ -302,7 +296,7 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
           ))}
         </dl>
         <p className="mt-3 text-xs text-muted-foreground">
-          Steps 15–16 in the app are OTP verification and legal consent (shown above).
+          Step 14 is account creation. Consent is collected on that step; OTP is not used yet.
         </p>
       </Card>
 

@@ -259,7 +259,7 @@ export function CreditsScreen({actor}: {actor: SessionUser}) {
     setError(null);
     try {
       const [meta, pros] = await Promise.all([
-        request<Omit<CreditsOverview, 'packs' | 'promos'>>('/admin/credits-meta'),
+        request<Omit<CreditsOverview, 'packs' | 'promos'>>('/v1/credits-meta'),
         listProfessionals(),
       ]);
       setOverview({...meta, packs: [], promos: []});

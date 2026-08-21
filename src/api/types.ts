@@ -14,7 +14,7 @@ export type SessionUser = Pick<AdminUser, 'id' | 'name' | 'email' | 'role'>;
 
 export type HealthResponse = {
   ok: boolean;
-  source: 'mock' | 'api';
+  source: 'api';
   app: string;
 };
 
@@ -164,12 +164,25 @@ export type ProfessionalTxn = {
   at: string;
 };
 
+export type ProServiceRate = {
+  session: string;
+  pack: string;
+};
+
+export type ProPricing = {
+  rates: Record<string, ProServiceRate>;
+  onlineMonthly: string;
+  freeConsult: boolean;
+  notes: string;
+};
+
 export type Professional = {
   id: string;
   name: string;
   email: string;
   phone: string;
   suspended: boolean;
+  onboarded: boolean;
   createdAt: string;
   serviceIds: number[];
   locations: ('mine' | 'client' | 'online')[];
@@ -180,6 +193,7 @@ export type Professional = {
   verificationSubmittedAt: string | null;
   verificationRejectedReason: string | null;
   activated: boolean;
+  pricing: ProPricing;
   credits: number;
   txns: ProfessionalTxn[];
   specialty: string;
@@ -209,6 +223,7 @@ export type ProfessionalSummary = {
   verification: VerificationStatus;
   credits: number;
   activated: boolean;
+  onboarded: boolean;
   suspended: boolean;
   profileCompletion: number;
 };

@@ -12,7 +12,7 @@ import {ErrorState} from '@/components/ui/ErrorState';
 import {LoadingState} from '@/components/ui/LoadingState';
 import {PageHeader} from '@/components/ui/PageHeader';
 
-type Filter = 'all' | 'onboarded' | 'incomplete' | 'otp-pending' | 'suspended';
+type Filter = 'all' | 'onboarded' | 'incomplete' | 'suspended';
 
 const goalLabels: Record<string, string> = {
   'lose-weight': 'Weight loss',
@@ -60,9 +60,6 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
       if (filter === 'incomplete' && row.onboarded) {
         return false;
       }
-      if (filter === 'otp-pending' && row.otpVerified) {
-        return false;
-      }
       if (filter === 'suspended' && !row.suspended) {
         return false;
       }
@@ -82,7 +79,6 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
       all: rows.length,
       onboarded: rows.filter(row => row.onboarded).length,
       incomplete: rows.filter(row => !row.onboarded).length,
-      'otp-pending': rows.filter(row => !row.otpVerified).length,
       suspended: rows.filter(row => row.suspended).length,
     }),
     [rows],
@@ -101,7 +97,7 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
       <PageHeader
         module="M6"
         title="Clients"
-        description="Matching questionnaire answers, OTP verification, consents, and saved coaches."
+        description="Onboarding questionnaire (14 steps), signup consent, and saved coaches. OTP is deferred in the mobile app."
       />
 
       <FilterBar>
@@ -110,7 +106,6 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
             ['all', 'All'],
             ['onboarded', 'Onboarded'],
             ['incomplete', 'Incomplete'],
-            ['otp-pending', 'OTP pending'],
             ['suspended', 'Suspended'],
           ] as const
         ).map(([key, label]) => (
@@ -133,8 +128,7 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
       {visible.length === 0 ? (
         <EmptyState title="No clients match" body="Try another filter or clear the search box." />
       ) : (
-        <DataTable
-          columns={['Client', 'Location', 'Goals', 'OTP', 'Onboarded', 'Saved', '']}>
+        <DataTable columns={['Client', 'Location', 'Goals', 'Onboarded', 'Saved', '']}>
           {visible.map(row => (
             <tr key={row.id} className="border-b border-border last:border-0">
               <td className="px-4 py-3">
@@ -144,19 +138,12 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
               <td className="px-4 py-3 text-muted-foreground">{row.location}</td>
               <td className="px-4 py-3 text-sm">{goalText(row.goals)}</td>
               <td className="px-4 py-3">
-                {row.otpVerified ? (
-                  <Badge tone="primary">Verified</Badge>
-                ) : (
-                  <Badge tone="warning">Pending</Badge>
-                )}
-              </td>
-              <td className="px-4 py-3">
                 {row.suspended ? (
                   <Badge tone="danger">Suspended</Badge>
                 ) : row.onboarded ? (
                   <Badge tone="primary">Complete</Badge>
                 ) : (
-                  <Badge tone="muted">In progress</Badge>
+                  <Badge tone="muted">Incomplete</Badge>
                 )}
               </td>
               <td className="px-4 py-3">{row.savedCount}</td>
@@ -174,7 +161,8 @@ export function ClientsScreen({actor}: {actor: SessionUser}) {
       )}
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Signed in as {actor.name} ({actor.role}).
+        Signed in as {actor.name} ({actor.role}). Incomplete usually means a half-created DB user
+        outside the app (mobile signup is register + data in one step).
       </p>
     </>
   );

@@ -45,13 +45,19 @@ type EditForm = {
 };
 
 function completionChecks(pro: Professional) {
+  const pricing = pro.pricing;
+  const hasPricing =
+    Object.keys(pricing?.rates ?? {}).length > 0 ||
+    Boolean(pricing?.onlineMonthly) ||
+    Boolean(pricing?.notes);
   return [
+    {label: 'Account onboarded', done: pro.onboarded},
     {label: 'Name and email', done: Boolean(pro.name && pro.email)},
     {label: 'Services selected', done: pro.serviceIds.length > 0},
     {label: 'Locations set', done: pro.locations.length > 0},
+    {label: 'Pricing set', done: hasPricing},
     {label: 'Certifications uploaded', done: pro.certificationFiles.length > 0},
-    {label: 'Insurance uploaded', done: pro.insuranceFiles.length > 0},
-    {label: 'Credits purchased', done: pro.credits > 0},
+    {label: 'Verification submitted', done: pro.verification === 'pending' || pro.verification === 'verified'},
     {label: 'Profile activated', done: pro.activated},
   ];
 }
@@ -273,6 +279,11 @@ export function ProfessionalDetailScreen({
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
+        {pro.onboarded ? (
+          <Badge tone="primary">Onboarded</Badge>
+        ) : (
+          <Badge tone="warning">Signup incomplete</Badge>
+        )}
         <Badge tone={pro.verification === 'verified' ? 'primary' : pro.verification === 'pending' ? 'warning' : 'muted'}>
           {verificationLabels[pro.verification]}
         </Badge>
@@ -402,6 +413,40 @@ export function ProfessionalDetailScreen({
               value={pro.locations.map(key => locationLabels[key]).join(', ') || '—'}
             />
           </dl>
+        </Section>
+
+        <Section title="Onboarding pricing">
+          {Object.keys(pro.pricing?.rates ?? {}).length === 0 &&
+          !pro.pricing?.onlineMonthly &&
+          !pro.pricing?.notes ? (
+            <p className="text-sm text-muted-foreground">No rates set during coach onboarding.</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(pro.pricing?.rates ?? {}).map(([serviceId, rate]) => {
+                const serviceName =
+                  services.find(item => String(item.id) === serviceId)?.name ?? `Service #${serviceId}`;
+                return (
+                  <div key={serviceId} className="rounded-xl border border-border p-3">
+                    <p className="text-sm font-semibold text-foreground">{serviceName}</p>
+                    <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+                      <Field label="Per session (AED)" value={rate.session || '—'} />
+                      <Field label="10-session pack (AED)" value={rate.pack || '—'} />
+                    </dl>
+                  </div>
+                );
+              })}
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <Field label="Online monthly (AED)" value={pro.pricing?.onlineMonthly || '—'} />
+                <Field
+                  label="Free intro consult"
+                  value={pro.pricing?.freeConsult ? 'Yes' : 'No'}
+                />
+              </dl>
+              {pro.pricing?.notes ? (
+                <p className="text-sm text-muted-foreground">{pro.pricing.notes}</p>
+              ) : null}
+            </div>
+          )}
         </Section>
 
         <Section title="Public profile">

@@ -1,14 +1,20 @@
 import type {Professional, ProfessionalSummary, VerificationQueueItem} from '@/api/types';
 
 export function profileCompletion(pro: Professional): number {
+  const pricing = pro.pricing;
+  const hasPricing =
+    Object.keys(pricing?.rates ?? {}).length > 0 ||
+    Boolean(pricing?.onlineMonthly) ||
+    Boolean(pricing?.notes);
   const checks = [
     Boolean(pro.name && pro.email),
+    pro.onboarded,
     pro.serviceIds.length > 0,
     pro.locations.length > 0,
+    hasPricing,
     pro.certificationFiles.length > 0,
-    pro.insuranceFiles.length > 0,
-    pro.credits > 0,
     pro.activated,
+    pro.verification === 'pending' || pro.verification === 'verified',
   ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
@@ -25,6 +31,7 @@ export function toProfessionalSummary(pro: Professional): ProfessionalSummary {
     verification: pro.verification,
     credits: pro.credits,
     activated: pro.activated,
+    onboarded: pro.onboarded,
     suspended: pro.suspended,
     profileCompletion: profileCompletion(pro),
   };

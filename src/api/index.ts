@@ -85,6 +85,8 @@ export type {
   Professional,
   ProfessionalSummary,
   ProfessionalTxn,
+  ProPricing,
+  ProServiceRate,
   PromoCode,
   QuoteRequestDetail,
   QuoteRequestStatus,
@@ -112,11 +114,11 @@ export type {
 export {ApiError, isApiError} from './errors';
 
 export function getHealth() {
-  return request<HealthResponse>('/health');
+  return request<HealthResponse>('/v1/health');
 }
 
 export function getDashboardOverview() {
-  return request<DashboardOverview>('/admin/dashboard');
+  return request<DashboardOverview>('/v1/dashboard');
 }
 
 export function login(email: string, password: string) {
@@ -149,7 +151,7 @@ export async function getCreditsOverview(): Promise<CreditsOverview> {
   const [packs, promos, rest] = await Promise.all([
     listCreditPackages(),
     listPromoCodes(),
-    request<Omit<CreditsOverview, 'packs' | 'promos'>>('/admin/credits-meta'),
+    request<Omit<CreditsOverview, 'packs' | 'promos'>>('/v1/credits-meta'),
   ]);
   return {...rest, packs, promos};
 }
@@ -158,7 +160,7 @@ export {createPromoCode, listPromoCodes, updatePromoCode} from '@/lib/apis';
 export {createService, listServices, updateService} from '@/lib/apis';
 
 export function adjustCredits(input: AdjustCreditsInput) {
-  return request<Professional>(`/admin/credit-adjustments`, {
+  return request<Professional>(`/v1/credit-adjustments`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -171,18 +173,18 @@ export type SettingsPayload = {
 };
 
 export function getSettings() {
-  return request<SettingsPayload>('/admin/settings');
+  return request<SettingsPayload>('/v1/settings');
 }
 
 export function updateSettings(input: Partial<AppSettings>) {
-  return request<AppSettings>('/admin/settings', {
+  return request<AppSettings>('/v1/settings', {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function addLookupOption(input: {groupId: LookupGroupId; label: string; value?: string}) {
-  return request<LookupOption>('/admin/lookups', {
+  return request<LookupOption>('/v1/lookups', {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -192,93 +194,93 @@ export function updateLookupOption(
   id: string,
   input: {label?: string; active?: boolean},
 ) {
-  return request<LookupOption>(`/admin/lookups/${id}`, {
+  return request<LookupOption>(`/v1/lookups/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listProfessionals() {
-  return request<ProfessionalSummary[]>('/admin/professionals');
+  return request<ProfessionalSummary[]>('/v1/professionals');
 }
 
 export function getProfessional(id: string) {
-  return request<Professional>(`/admin/professionals/${id}`);
+  return request<Professional>(`/v1/professionals/${id}`);
 }
 
 export function updateProfessional(id: string, input: UpdateProfessionalInput) {
-  return request<Professional>(`/admin/professionals/${id}`, {
+  return request<Professional>(`/v1/professionals/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listVerificationQueue() {
-  return request<VerificationQueueItem[]>('/admin/verification');
+  return request<VerificationQueueItem[]>('/v1/verification');
 }
 
 export function approveVerification(id: string) {
-  return request<Professional>(`/admin/verification/${id}/approve`, {method: 'POST'});
+  return request<Professional>(`/v1/verification/${id}/approve`, {method: 'POST'});
 }
 
 export function rejectVerification(id: string, input: RejectVerificationInput = {}) {
-  return request<Professional>(`/admin/verification/${id}/reject`, {
+  return request<Professional>(`/v1/verification/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function listClients() {
-  return request<ClientSummary[]>('/admin/clients');
+  return request<ClientSummary[]>('/v1/clients');
 }
 
 export function getClient(id: string) {
-  return request<Client>(`/admin/clients/${id}`);
+  return request<Client>(`/v1/clients/${id}`);
 }
 
 export function updateClient(id: string, input: UpdateClientInput) {
-  return request<Client>(`/admin/clients/${id}`, {
+  return request<Client>(`/v1/clients/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listLeads() {
-  return request<LeadSummary[]>('/admin/leads');
+  return request<LeadSummary[]>('/v1/leads');
 }
 
 export function getLead(id: string) {
-  return request<LeadDetail>(`/admin/leads/${id}`);
+  return request<LeadDetail>(`/v1/leads/${id}`);
 }
 
 export function updateLead(id: string, input: UpdateLeadInput) {
-  return request<LeadDetail>(`/admin/leads/${id}`, {
+  return request<LeadDetail>(`/v1/leads/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listQuoteRequests() {
-  return request<QuoteRequestSummary[]>('/admin/requests');
+  return request<QuoteRequestSummary[]>('/v1/requests');
 }
 
 export function getQuoteRequest(id: string) {
-  return request<QuoteRequestDetail>(`/admin/requests/${id}`);
+  return request<QuoteRequestDetail>(`/v1/requests/${id}`);
 }
 
 export function updateQuoteRequest(id: string, input: UpdateQuoteRequestInput) {
-  return request<QuoteRequestDetail>(`/admin/requests/${id}`, {
+  return request<QuoteRequestDetail>(`/v1/requests/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listLegalDocuments() {
-  return request<LegalDocumentSummary[]>('/admin/content');
+  return request<LegalDocumentSummary[]>('/v1/content');
 }
 
 export function getLegalDocument(id: LegalDocId, lang: ContentLang) {
-  return request<LegalDocument>(`/admin/content/${id}/${lang}`);
+  return request<LegalDocument>(`/v1/content/${id}/${lang}`);
 }
 
 export function updateLegalDocument(
@@ -286,31 +288,31 @@ export function updateLegalDocument(
   lang: ContentLang,
   input: UpdateLegalDocumentInput,
 ) {
-  return request<LegalDocument>(`/admin/content/${id}/${lang}`, {
+  return request<LegalDocument>(`/v1/content/${id}/${lang}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listSupportTickets() {
-  return request<SupportTicketSummary[]>('/admin/support');
+  return request<SupportTicketSummary[]>('/v1/support');
 }
 
 export function getSupportTicket(id: string) {
-  return request<SupportTicketDetail>(`/admin/support/${id}`);
+  return request<SupportTicketDetail>(`/v1/support/${id}`);
 }
 
 export function updateSupportTicket(id: string, input: UpdateSupportTicketInput) {
-  return request<SupportTicketDetail>(`/admin/support/${id}`, {
+  return request<SupportTicketDetail>(`/v1/support/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
 }
 
 export function listConversations() {
-  return request<ConversationSummary[]>('/admin/messages');
+  return request<ConversationSummary[]>('/v1/messages');
 }
 
 export function getConversation(id: string) {
-  return request<ConversationDetail>(`/admin/messages/${id}`);
+  return request<ConversationDetail>(`/v1/messages/${id}`);
 }

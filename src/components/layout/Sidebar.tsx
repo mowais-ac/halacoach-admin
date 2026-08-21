@@ -38,7 +38,7 @@ export function Sidebar({role}: {role: AdminRole}) {
           );
         })}
       </nav>
-      <p className="px-5 py-4 text-xs text-muted-foreground">M14 complete · mock data</p>
+      <p className="px-5 py-4 text-xs text-muted-foreground">Connected to live API</p>
     </aside>
   );
 }

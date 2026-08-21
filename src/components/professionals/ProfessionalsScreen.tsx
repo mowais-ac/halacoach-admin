@@ -13,7 +13,7 @@ import {LoadingState} from '@/components/ui/LoadingState';
 import {PageHeader} from '@/components/ui/PageHeader';
 import {verificationLabels} from '@/lib/professional-utils';
 
-type Filter = 'all' | 'verified' | 'pending' | 'inactive' | 'suspended';
+type Filter = 'all' | 'onboarded' | 'verified' | 'pending' | 'inactive' | 'suspended';
 
 function verificationTone(status: ProfessionalSummary['verification']) {
   if (status === 'verified') {
@@ -54,6 +54,9 @@ export function ProfessionalsScreen({actor}: {actor: SessionUser}) {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows.filter(row => {
+      if (filter === 'onboarded' && !row.onboarded) {
+        return false;
+      }
       if (filter === 'verified' && row.verification !== 'verified') {
         return false;
       }
@@ -81,6 +84,7 @@ export function ProfessionalsScreen({actor}: {actor: SessionUser}) {
   const counts = useMemo(
     () => ({
       all: rows.length,
+      onboarded: rows.filter(row => row.onboarded).length,
       verified: rows.filter(row => row.verification === 'verified').length,
       pending: rows.filter(row => row.verification === 'pending').length,
       inactive: rows.filter(row => !row.activated).length,
@@ -102,13 +106,14 @@ export function ProfessionalsScreen({actor}: {actor: SessionUser}) {
       <PageHeader
         module="M4"
         title="Professionals"
-        description="Coach profiles from onboarding and the public marketplace. Reviewers can browse; super admins can edit and suspend."
+        description="Coach profiles from mobile onboarding (services, location, pricing, docs). Reviewers can browse; super admins can edit and suspend."
       />
 
       <FilterBar>
         {(
           [
             ['all', 'All'],
+            ['onboarded', 'Onboarded'],
             ['verified', 'Verified'],
             ['pending', 'Pending'],
             ['inactive', 'Not activated'],
@@ -142,6 +147,7 @@ export function ProfessionalsScreen({actor}: {actor: SessionUser}) {
             'Name',
             'Location',
             'Services',
+            'Onboarded',
             'Verification',
             'Credits',
             'Activated',
@@ -156,6 +162,13 @@ export function ProfessionalsScreen({actor}: {actor: SessionUser}) {
               </td>
               <td className="px-4 py-3 text-muted-foreground">{row.location}</td>
               <td className="px-4 py-3">{row.serviceCount}</td>
+              <td className="px-4 py-3">
+                {row.onboarded ? (
+                  <Badge tone="primary">Yes</Badge>
+                ) : (
+                  <Badge tone="muted">No</Badge>
+                )}
+              </td>
               <td className="px-4 py-3">
                 <Badge tone={verificationTone(row.verification)}>
                   {verificationLabels[row.verification]}

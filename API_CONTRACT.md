@@ -1,8 +1,7 @@
 # HalaCoach Admin API Contract
 
-This document lists **every HTTP route** the admin UI calls today via `src/api/index.ts`. Implement these in `halacoach-apis` under a shared base path (recommended: `/api/v1/admin`).
-
-Until the real API exists, the admin app uses an in-memory mock (`src/api/mock.ts`) with the paths below **without** the `/api/v1` prefix.
+This document lists **every HTTP route** the admin UI calls today via `src/api/index.ts`.
+Implemented in `halacoach-apis` under `/api/admin` (paths below are relative to `NEXT_PUBLIC_API_BASE_URL`).
 
 ---
 
@@ -21,7 +20,7 @@ Session cookie (client): `hc_admin_session` — JSON `{ id, name, email, role }`
 - **Content-Type:** `application/json` on POST/PATCH bodies
 - **Success:** `2xx` with JSON body (or empty for future deletes)
 - **Errors:** HTTP `4xx` / `5xx` with a plain-text or JSON `message` the UI can show
-- **IDs:** string slugs/UUIDs as seeded in admin mocks
+- **IDs:** string or numeric IDs as returned by the API
 - **Timestamps:** ISO 8601 UTC strings
 - **Roles:** `super` \| `reviewer` \| `support` — enforce server-side; UI also gates nav
 
@@ -36,7 +35,7 @@ Session cookie (client): `hc_admin_session` — JSON `{ id, name, email, role }`
 
 ## Health
 
-### `GET /health`
+### `GET /v1/health`
 
 **Response**
 
@@ -351,17 +350,6 @@ TypeScript source of truth: `src/api/types.ts`, `src/api/lookups.ts`.
 
 ---
 
-## Mock → API migration checklist
-
-1. Stand up `halacoach-apis` with Postgres models matching seed data in `src/api/*-seed.ts`.
-2. Mount routes above under `/api/v1/admin/*`.
-3. Replace plain-text errors with consistent JSON: `{ "message": "..." }`.
-4. Add JWT or session middleware; validate role per route.
-5. Set `NEXT_PUBLIC_API_BASE_URL` on admin deploy.
-6. Keep response shapes identical — admin screens should not change.
-
----
-
 ## Admin module map
 
 | Module | Routes prefix | UI path |
@@ -384,4 +372,4 @@ TypeScript source of truth: `src/api/types.ts`, `src/api/lookups.ts`.
 
 ---
 
-*Generated for handoff from `halacoach-admin` mock client. Update this file when adding new admin screens.*
+*Update this file when adding new admin screens.*
