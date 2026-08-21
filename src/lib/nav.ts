@@ -1,6 +1,7 @@
 import type {LucideIcon} from 'lucide-react';
 import {
   BadgeCheck,
+  ClipboardList,
   Coins,
   FileText,
   Headset,
@@ -56,6 +57,14 @@ export const navItems: NavItem[] = [
     description: 'Matching questionnaire answers, consents, OTP, and saved coaches.',
     icon: Users,
     module: 'M6',
+    permission: 'clients:read',
+  },
+  {
+    href: '/online-clients',
+    label: 'Online plans',
+    description: 'Coach-built training plans from the mobile Clients tab.',
+    icon: ClipboardList,
+    module: 'M6b',
     permission: 'clients:read',
   },
   {

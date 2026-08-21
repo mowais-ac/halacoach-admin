@@ -276,6 +276,45 @@ export function ClientDetailScreen({actor, id}: {actor: SessionUser; id: string}
           )}
         </Section>
 
+        <Section title="Online coaching plans">
+          {(client.onlinePlans ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No published or draft online plans linked to this account.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {(client.onlinePlans ?? []).map(plan => (
+                <li key={plan.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">{plan.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {plan.coachName} · {plan.goal}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      tone={
+                        plan.status === 'published'
+                          ? 'primary'
+                          : plan.status === 'draft'
+                            ? 'warning'
+                            : 'muted'
+                      }>
+                      {plan.status}
+                    </Badge>
+                    <Link
+                      href={`/online-clients/${plan.id}`}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                      Open
+                      <ExternalLink size={14} />
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
         <Section title="Notification preferences">
           <NotificationPrefsPanel prefs={client.notificationPrefs} />
         </Section>

@@ -39,6 +39,8 @@ import type {
   ConversationDetail,
   ConversationSummary,
   DashboardOverview,
+  OnlinePlanDetail,
+  OnlinePlanSummary,
 } from './types';
 
 export type {
@@ -82,6 +84,8 @@ export type {
   LookupOption,
   MessageAuthor,
   NotificationPrefs,
+  OnlinePlanDetail,
+  OnlinePlanSummary,
   Professional,
   ProfessionalSummary,
   ProfessionalTxn,
@@ -316,4 +320,12 @@ export function listConversations() {
 
 export function getConversation(id: string) {
   return request<ConversationDetail>(`/v1/messages/${id}`);
+}
+
+export function listOnlinePlans() {
+  return request<OnlinePlanSummary[]>('/v1/online-clients');
+}
+
+export function getOnlinePlan(id: string) {
+  return request<OnlinePlanDetail>(`/v1/online-clients/${id}`);
 }

@@ -288,6 +288,30 @@ export type ClientConsents = {
   acceptedAt: string | null;
 };
 
+export type OnlinePlanSummary = {
+  id: string;
+  name: string;
+  goal: string;
+  frequency: string;
+  equipment: string;
+  parq: string;
+  status: string;
+  since: string;
+  dayCount: number;
+  coachId: string;
+  coachName: string;
+  clientUserId: string | null;
+  clientUserEmail: string | null;
+  updatedAt: string;
+};
+
+export type OnlinePlanDetail = OnlinePlanSummary & {
+  program: unknown;
+  nutrition: unknown;
+  progress: unknown;
+  createdAt: string;
+};
+
 export type Client = {
   id: string;
   name: string;
@@ -302,6 +326,7 @@ export type Client = {
   answers: ClientAnswers;
   consents: ClientConsents;
   savedCoachIds: string[];
+  onlinePlans?: OnlinePlanSummary[];
   note?: string;
   notificationPrefs: NotificationPrefs;
 };
