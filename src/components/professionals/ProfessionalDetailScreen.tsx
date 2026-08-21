@@ -497,7 +497,7 @@ export function ProfessionalDetailScreen({
             <Field label="Formats" value={pro.formats.join(', ')} />
             <Field label="Languages" value={pro.languages.join(', ')} />
           </dl>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{pro.about}</p>
+          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{pro.about || pro.bio}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {pro.profileCertifications.map(item => (
               <Badge key={item} tone="muted">
@@ -505,6 +505,50 @@ export function ProfessionalDetailScreen({
               </Badge>
             ))}
           </div>
+        </Section>
+
+        <Section title="Client reviews">
+          {(pro.reviewList ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No reviews on file yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {(pro.reviewList ?? []).map(review => (
+                <li key={review.id} className="rounded-xl border border-border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">{review.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {review.date} · {review.source}
+                      </p>
+                    </div>
+                    <Badge tone="primary">{review.rating}★</Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{review.text}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section title="ROI (from app activity)">
+          {pro.roi ? (
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <Field label="Credits spent" value={pro.roi.creditsSpent} />
+              <Field label="Leads unlocked" value={pro.roi.leadsUnlocked} />
+              <Field label="Clients won" value={pro.roi.clientsWon} />
+              <Field label="Revenue booked (est.)" value={`AED ${pro.roi.revenue}`} />
+              <Field
+                label="Conversion trend"
+                value={pro.roi.conversionWeeks.join(' → ') + '%'}
+              />
+              <Field
+                label="Response trend"
+                value={pro.roi.responseRateWeeks.join(' → ') + '%'}
+              />
+            </dl>
+          ) : (
+            <p className="text-sm text-muted-foreground">No ROI data yet.</p>
+          )}
         </Section>
 
         <Section title="Documents">

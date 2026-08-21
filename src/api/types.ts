@@ -221,6 +221,22 @@ export type Professional = {
   gender: 'female' | 'male';
   rating: number;
   reviews: number;
+  reviewList?: Array<{
+    id: string;
+    name: string;
+    rating: number;
+    text: string;
+    source: string;
+    date: string;
+  }>;
+  roi?: {
+    creditsSpent: number;
+    leadsUnlocked: number;
+    clientsWon: number;
+    revenue: number;
+    conversionWeeks: number[];
+    responseRateWeeks: number[];
+  } | null;
   notificationPrefs: NotificationPrefs;
 };
 
