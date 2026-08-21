@@ -381,7 +381,10 @@ export type LeadSummary = {
   clientName: string;
   goal: string;
   serviceId: number;
+  service?: string;
   location: string;
+  frequency?: string;
+  format?: string;
   matchScore: number;
   creditCost: number;
   status: LeadStatus;
@@ -523,6 +526,8 @@ export type ConversationSummary = {
   professionalId: string;
   professionalName: string;
   professionalSpecialty: string;
+  kind?: string;
+  leadId?: string | null;
   lastMessage: string;
   lastMessageAt: string;
   messageCount: number;
@@ -534,6 +539,8 @@ export type ConversationDetail = Conversation & {
   professionalName: string;
   professionalEmail: string;
   professionalSpecialty: string;
+  kind?: string;
+  leadId?: string | null;
 };
 
 export type LegalDocId = 'terms' | 'privacy' | 'professional';

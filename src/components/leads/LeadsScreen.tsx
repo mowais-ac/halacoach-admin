@@ -94,7 +94,12 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
       <PageHeader
         module="M7"
         title="Leads"
-        description="Client requests in the marketplace, credit unlock cost, and which coaches unlocked contact details."
+        description="Client requests in the marketplace, credit unlock cost, and which coaches unlocked contact details. Closed leads stay here for ops but are hidden from the coach app."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Refresh
+          </Button>
+        }
       />
 
       <FilterBar>
@@ -126,17 +131,19 @@ export function LeadsScreen({actor}: {actor: SessionUser}) {
         <EmptyState title="No leads match" body="Try another filter or clear the search box." />
       ) : (
         <DataTable
-          columns={['Goal', 'Client', 'Location', 'Match', 'Cost', 'Unlocks', 'Posted', '']}>
+          columns={['Goal', 'Client', 'Location', 'Format', 'Match', 'Cost', 'Unlocks', 'Posted', '']}>
           {visible.map(row => (
             <tr key={row.id} className="border-b border-border last:border-0">
               <td className="px-4 py-3">
                 <div className="font-medium text-foreground">{row.goal}</div>
                 <div className="text-xs text-muted-foreground">
-                  {serviceNameById.get(row.serviceId) ?? `#${row.serviceId}`}
+                  {serviceNameById.get(row.serviceId) ?? row.service ?? `#${row.serviceId}`}
+                  {row.frequency ? ` · ${row.frequency}` : ''}
                 </div>
               </td>
               <td className="px-4 py-3 text-sm">{row.clientName}</td>
               <td className="px-4 py-3 text-muted-foreground">{row.location}</td>
+              <td className="px-4 py-3 text-sm text-muted-foreground">{row.format ?? '—'}</td>
               <td className="px-4 py-3">
                 <Badge tone="sky">{row.matchScore}%</Badge>
               </td>

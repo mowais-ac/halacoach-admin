@@ -5,7 +5,7 @@ import {useEffect, useMemo, useState} from 'react';
 import {ChevronRight} from 'lucide-react';
 import {isApiError, listConversations, type ConversationSummary} from '@/api';
 import {Badge} from '@/components/ui/Badge';
-import {Card} from '@/components/ui/Card';
+import {Button} from '@/components/ui/Button';
 import {DataTable} from '@/components/ui/DataTable';
 import {EmptyState} from '@/components/ui/EmptyState';
 import {ErrorState} from '@/components/ui/ErrorState';
@@ -44,7 +44,8 @@ export function MessagesScreen() {
       row =>
         row.clientName.toLowerCase().includes(q) ||
         row.professionalName.toLowerCase().includes(q) ||
-        row.lastMessage.toLowerCase().includes(q),
+        row.lastMessage.toLowerCase().includes(q) ||
+        (row.leadId ?? '').toLowerCase().includes(q),
     );
   }, [rows, query]);
 
@@ -61,29 +62,33 @@ export function MessagesScreen() {
       <PageHeader
         module="M12"
         title="Messages"
-        description="Read-only stub of client ↔ coach threads. Sending and moderation arrive with halacoach-apis."
+        description="Live client ↔ coach threads from the mobile app. Unlocking a lead opens a conversation; coaches send replies from Messages."
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Refresh
+          </Button>
+        }
       />
 
-      <Card className="mb-6 border-sky-200 bg-sky-50">
-        <p className="text-sm text-foreground">
-          View-only module — matches the mobile app demo thread. No reply, send, or delete actions
-          in admin v1.
-        </p>
-      </Card>
-
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           className="h-9 w-full max-w-sm rounded-xl border border-border px-3 text-sm"
-          placeholder="Search client, coach, or message…"
+          placeholder="Search client, coach, lead, or message…"
           value={query}
           onChange={event => setQuery(event.target.value)}
         />
+        <p className="text-xs text-muted-foreground">
+          Read-only in admin · {rows.length} conversation{rows.length === 1 ? '' : 's'}
+        </p>
       </div>
 
       {visible.length === 0 ? (
-        <EmptyState title="No conversations match" body="Try clearing the search box." />
+        <EmptyState
+          title="No conversations yet"
+          body="When a coach unlocks a lead or a client messages a coach, threads appear here."
+        />
       ) : (
-        <DataTable columns={['Participants', 'Last message', 'Messages', 'Updated', '']}>
+        <DataTable columns={['Participants', 'Type', 'Last message', 'Messages', 'Updated', '']}>
           {visible.map(row => (
             <tr key={row.id} className="border-t border-border">
               <td className="px-4 py-3">
@@ -92,8 +97,15 @@ export function MessagesScreen() {
                 </p>
                 <p className="text-xs text-muted-foreground">{row.professionalSpecialty}</p>
               </td>
+              <td className="px-4 py-3">
+                {row.leadId ? (
+                  <Badge tone="sky">Lead</Badge>
+                ) : (
+                  <Badge tone="muted">Direct</Badge>
+                )}
+              </td>
               <td className="max-w-md px-4 py-3">
-                <p className="line-clamp-2 text-sm text-muted-foreground">{row.lastMessage}</p>
+                <p className="line-clamp-2 text-sm text-muted-foreground">{row.lastMessage || '—'}</p>
               </td>
               <td className="px-4 py-3">
                 <Badge tone="muted">{row.messageCount}</Badge>

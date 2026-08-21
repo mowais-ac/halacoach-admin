@@ -133,11 +133,14 @@ export function LeadDetailScreen({actor, id}: {actor: SessionUser; id: string}) 
       <PageHeader
         module="M7"
         title={lead.goal}
-        description={`${lead.location} · ${formatPostedAt(lead.postedAt)} · ${lead.matchScore}% match`}
+        description={`${lead.location} · ${formatPostedAt(lead.postedAt)} · base match ${lead.matchScore}%`}
         actions={
-          canWrite ? (
-            <div className="flex flex-wrap gap-2">
-              {lead.status === 'open' ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Refresh unlocks
+            </Button>
+            {canWrite ? (
+              lead.status === 'open' ? (
                 <Button variant="destructive" onClick={() => setPendingClose(true)}>
                   Close lead
                 </Button>
@@ -145,9 +148,9 @@ export function LeadDetailScreen({actor, id}: {actor: SessionUser; id: string}) 
                 <Button variant="outline" onClick={() => setPendingReopen(true)}>
                   Reopen lead
                 </Button>
-              )}
-            </div>
-          ) : null
+              )
+            ) : null}
+          </div>
         }
       />
 
@@ -222,6 +225,10 @@ export function LeadDetailScreen({actor, id}: {actor: SessionUser; id: string}) 
               ))}
             </ul>
           )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Unlocking in the coach app spends wallet credits, reveals client contact, and opens a
+            lead conversation thread. Refresh to see new unlocks immediately.
+          </p>
         </Section>
 
         {canWrite ? (

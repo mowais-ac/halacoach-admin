@@ -49,18 +49,24 @@ export function MessageThreadScreen({id}: {id: string}) {
         title={`${conversation.clientName} ↔ ${conversation.professionalName}`}
         description={conversation.professionalSpecialty}
         actions={
-          <Link href="/messages">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4" />
-              Back to list
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Refresh
             </Button>
-          </Link>
+            <Link href="/messages">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to list
+              </Button>
+            </Link>
+          </div>
         }
       />
 
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Badge tone="sky">Read-only</Badge>
+          <Badge tone="sky">Live thread</Badge>
+          {conversation.leadId ? <Badge tone="primary">From lead unlock</Badge> : null}
           <span className="text-muted-foreground">
             {conversation.messages.length} messages · started{' '}
             {formatMessageTime(conversation.createdAt)}
@@ -78,6 +84,17 @@ export function MessageThreadScreen({id}: {id: string}) {
             {conversation.professionalName}
             <ExternalLink className="h-3.5 w-3.5" />
           </Link>
+          {conversation.leadId ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <Link
+                href={`/leads/${conversation.leadId}`}
+                className="inline-flex items-center gap-1 font-semibold text-primary">
+                View lead
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
+            </>
+          ) : null}
         </div>
       </Card>
 
